@@ -1,0 +1,32 @@
+# Credentials and secrets
+.credentials.json
+
+# Session history and transcripts
+history.jsonl
+projects/
+file-history/
+
+# Caches
+cache/
+paste-cache/
+session-env/
+shell-snapshots/
+todos/
+statsig/
+telemetry/
+stats-cache.json
+
+# Debug output
+debug/
+
+# IDE-specific state
+ide/
+
+# Plans (session-specific)
+plans/
+
+# Plugins (managed separately)
+plugins/
+
+# Local overrides (machine-specific)
+settings.local.json
