@@ -184,9 +184,18 @@ Open issues: 12 | Open PRs: 3
 - Commit style: present tense, max 72 chars
 - Testing: go test ./...
 - PR requires: description, test plan
+
+## Related Projects Detected
+From README:
+  - steveyegge/beads (mentioned in dependencies)
+
+Track these for additional context? ("yes", "skip")
 ```
 
 ### On Response
+
+- If user wants to add related upstreams: fetch research for them, then continue
+- If user skips: continue to context phase
 
 ```bash
 bd close <gate-bootstrap-step-id> --continue
