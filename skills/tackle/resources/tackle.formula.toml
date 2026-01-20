@@ -1,0 +1,157 @@
+description = """
+Upstream-aware issue implementation workflow with approval gates.
+
+Tracks work from initial research through PR submission. Each step is a
+checkpoint that survives session restarts. Gates require explicit approval.
+"""
+formula = "tackle"
+version = 1
+
+[vars.issue]
+description = "The issue ID being tackled"
+required = true
+
+[vars.upstream]
+description = "Detected upstream org/repo"
+required = false
+
+[[steps]]
+id = "bootstrap"
+title = "Bootstrap upstream research"
+description = """
+1. Detect upstream from git remotes (upstream > fork-source > origin)
+2. Check research cache freshness (>24h = stale)
+3. If stale, refresh: CONTRIBUTING.md, PR patterns, CI requirements
+4. Store in .beads/metadata/upstream/<org>-<repo>/
+"""
+
+[[steps]]
+id = "context"
+title = "Search upstream for related work"
+needs = ["bootstrap"]
+description = """
+Fuzzy search upstream for:
+- Issues with similar keywords/titles
+- Open PRs addressing related problems
+- Recently merged PRs in same area
+- Recent commits ahead of our fork
+
+Output: Contextual information (NOT suggestions to work on)
+"""
+
+[[steps]]
+id = "existing-pr-check"
+title = "Check for existing fix PR"
+needs = ["context"]
+description = """
+If a highly-relevant open PR exists that would fix our issue:
+1. Present options: apply-pr, wait-upstream, implement-anyway
+2. If apply-pr: fetch, test locally, close if passes
+3. If wait-upstream: mark blocked, track PR status
+4. If implement-anyway: continue to plan
+"""
+
+[[steps]]
+id = "plan"
+title = "Create implementation plan"
+needs = ["existing-pr-check"]
+description = """
+Create implementation plan based on:
+- Issue requirements
+- Upstream context (patterns, conventions)
+- Hot areas to avoid
+"""
+
+[[steps]]
+id = "gate-plan"
+title = "GATE: Plan approval"
+needs = ["plan"]
+description = """
+**MANDATORY STOP**
+
+Present plan to user. Wait for explicit approval:
+  /tackle --gate approve
+  /tackle --gate reject
+
+DO NOT PROCEED WITHOUT APPROVAL.
+"""
+
+[[steps]]
+id = "branch"
+title = "Create clean branch"
+needs = ["gate-plan"]
+description = """
+git fetch upstream
+git checkout -b <type>/<issue-id>-<description> upstream/$DEFAULT_BRANCH
+"""
+
+[[steps]]
+id = "implement"
+title = "Implement solution"
+needs = ["branch"]
+description = """
+Implement following upstream conventions.
+Commit atomically with conventional commit messages.
+"""
+
+[[steps]]
+id = "validate"
+title = "Validate implementation"
+needs = ["implement"]
+description = """
+- Run tests
+- Check isolation (single concern)
+- Verify branch is rebased on upstream
+"""
+
+[[steps]]
+id = "gate-submit"
+title = "GATE: Pre-submit approval"
+needs = ["validate"]
+description = """
+**MANDATORY STOP**
+
+Show full PR preview:
+- Title, body, files changed
+- Target branch
+
+Wait for explicit approval:
+  /tackle --gate approve
+  /tackle --gate reject
+
+DO NOT SUBMIT PR WITHOUT APPROVAL.
+"""
+
+[[steps]]
+id = "submit"
+title = "Submit PR"
+needs = ["gate-submit"]
+description = """
+Only after explicit approval:
+gh pr create --title "..." --body "..."
+"""
+
+[[steps]]
+id = "record"
+title = "Record outcome"
+needs = ["submit"]
+description = """
+Track PR URL and outcome for future learning.
+Update local issue with PR link.
+"""
+
+[[steps]]
+id = "retro"
+title = "Retrospective"
+needs = ["record"]
+description = """
+Reflect on issues tackle could help prevent in future runs.
+
+**Fix immediately**: Objective errors (wrong flags, syntax errors, missing required params).
+**Log to journal**: Subjective friction (confusing steps, suggestions, systemic issues).
+
+Only propose fixes for subjective issues after 2+ occurrences in journal.
+Ignore task-specific issues (test failures, upstream quirks).
+
+See RETRO.md for details.
+"""
