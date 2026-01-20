@@ -189,7 +189,7 @@ Open issues: 12 | Open PRs: 3
 From README:
   - steveyegge/beads (mentioned in dependencies)
 
-Track these for additional context? ("yes", "skip")
+Track these for additional context?
 ```
 
 ### On Response
