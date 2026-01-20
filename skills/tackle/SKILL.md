@@ -205,21 +205,13 @@ bd close <gate-bootstrap-step-id> --continue
 
 ## Gate 1: `gate-plan` (Plan Review)
 
-🛑 **MANDATORY STOP** - Do not proceed without explicit approval.
+**MANDATORY STOP** - Present the plan, then wait for explicit user approval before proceeding.
+
+### Show to User
 
 ```
-╔════════════════════════════════════════════════════════════════════╗
-║  🛑 MANDATORY STOP - GATE: Plan Review                                ║
-║                                                                    ║
-║  DO NOT PROCEED until user explicitly approves.                    ║
-║                                                                    ║
-║  Present the plan, then STOP and WAIT for user response.           ║
-╚════════════════════════════════════════════════════════════════════╝
-```
+🛑 GATE: Plan Review
 
-### Gate 1 Presentation Format
-
-```
 Plan for <issue-id>: <issue-title>
 
 ## Scope
@@ -233,9 +225,7 @@ Plan for <issue-id>: <issue-title>
   - Conflicting PRs: <none | list>
   - Hot areas: <none | list with reasons>
 
-┌────────────────────────────────────────────────────────────────────┐
-│ Approve to continue, or request changes.                           │
-└────────────────────────────────────────────────────────────────────┘
+Approve to continue, or request changes.
 ```
 
 ### On Approve
@@ -258,7 +248,7 @@ Stay in plan phase, revise based on feedback.
 
 ## Gate 2: `gate-submit` (Pre-Submit Review)
 
-🛑 **MANDATORY STOP** - Do not submit PR without explicit approval.
+**MANDATORY STOP** - Create draft PR, present for review, wait for explicit user approval before marking ready.
 
 ### Idempotent Entry (Critical for Session Recovery)
 
@@ -293,16 +283,10 @@ fi
 
 This ensures the session can end anywhere and resume cleanly. GitHub is the source of truth.
 
-### Gate 2 Presentation Format
+### Show to User
 
 ```
-╔════════════════════════════════════════════════════════════════════╗
-║  🛑 MANDATORY STOP - GATE: Pre-Submit Review                          ║
-║                                                                    ║
-║  DO NOT SUBMIT PR until user explicitly approves.                  ║
-║                                                                    ║
-║  Review the draft PR on GitHub, then approve or reject.            ║
-╚════════════════════════════════════════════════════════════════════╝
+🛑 GATE: Pre-Submit Review
 
 Draft PR for <issue-id>:
 
@@ -326,9 +310,7 @@ Draft PR for <issue-id>:
   - Isolation: PASSED (single concern)
   - Rebased: Yes, on upstream default branch
 
-┌────────────────────────────────────────────────────────────────────┐
-│ PR is in draft state. Approve to mark ready for maintainer review. │
-└────────────────────────────────────────────────────────────────────┘
+Approve to mark PR ready for maintainer review.
 ```
 
 ### On Approve
