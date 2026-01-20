@@ -163,9 +163,10 @@ if [ -z "$CACHE_BEAD" ] || [ "$CACHE_BEAD" = "null" ]; then
 fi
 
 if [ -n "$CACHE_BEAD" ] && [ "$CACHE_BEAD" != "null" ]; then
-  # Check freshness from bead's updated_at
-  UPDATED=$(bd show "$CACHE_BEAD" --json | jq -r '.[0].updated_at')
+  # Check freshness from last_checked in notes (not updated_at, which only changes on content updates)
+  LAST_CHECKED=$(bd show "$CACHE_BEAD" --json | jq -r '.[0].notes' | grep -oP 'last_checked: \K[^\n]+' || echo "")
   # Compare with 24h threshold...
+  # If stale or missing, proceed to refresh
 fi
 ```
 
@@ -231,6 +232,8 @@ open_prs_json: |
 ### Create or Update Cache Bead
 
 ```bash
+NOW=$(date -Iseconds)
+
 if [ -z "$CACHE_BEAD" ]; then
   CACHE_BEAD=$(bd create \
     --title "Upstream research: $ORG_REPO" \
@@ -239,16 +242,27 @@ if [ -z "$CACHE_BEAD" ]; then
     --label tackle-cache \
     --external-ref "upstream:$ORG_REPO" \
     --description "$RESEARCH_YAML" \
+    --notes "last_checked: $NOW" \
     --json | jq -r '.id')
   echo "Created cache bead: $CACHE_BEAD"
 
   # Store bead ID in config for fast lookup
   # Add to .beads/config.yaml under tackle.cache_beads
 else
-  bd update "$CACHE_BEAD" --description "$RESEARCH_YAML"
+  bd update "$CACHE_BEAD" --description "$RESEARCH_YAML" --notes "last_checked: $NOW"
   echo "Updated cache bead: $CACHE_BEAD"
 fi
 ```
+
+### Record Check Without Changes
+
+If cache was checked but upstream data hasn't changed, still update `last_checked`:
+
+```bash
+bd update "$CACHE_BEAD" --notes "last_checked: $(date -Iseconds)"
+```
+
+This prevents redundant upstream fetches on subsequent runs.
 
 ## Section 5: Related Upstream Discovery
 

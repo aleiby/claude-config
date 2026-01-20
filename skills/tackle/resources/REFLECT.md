@@ -55,7 +55,12 @@ Objective errors that will always fail:
 - Syntax errors in example commands
 - Incorrect command names or paths
 
-These are bugs, not patterns. Fix them now.
+Predictable inefficiencies that will always waste effort:
+- Design flaws that cause redundant work every run
+- Missing state tracking that forces unnecessary re-fetches
+- Logic errors that produce correct but wasteful behavior
+
+These are bugs or design flaws, not patterns. Fix them now.
 
 ### Note and Check for Patterns (2+ occurrences)
 Subjective issues that need validation:
