@@ -18,12 +18,15 @@ user-invocable: true
 /tackle --status                Show current state
 /tackle --abort                 Abandon tackle, clean up
 /tackle --refresh               Force refresh upstream research
+/tackle --help                  Show this help
 
 Upstream management:
 /tackle add-upstream <org/repo>     Add upstream to track
 /tackle list-upstreams              Show tracked upstreams
 /tackle remove-upstream <org/repo>  Remove upstream
 ```
+
+When user asks for help, show this Quick Reference section.
 
 ## Resource Loading (Progressive Disclosure)
 
@@ -97,6 +100,7 @@ First, parse what the user wants:
 | `/tackle --status` | Show current tackle state via `bd --no-daemon mol current` |
 | `/tackle --abort` | Abandon tackle, clean up molecule and branch |
 | `/tackle --refresh` | Force refresh upstream research |
+| `/tackle --help` | Show Quick Reference to user |
 | `/tackle add-upstream <org/repo>` | Add upstream to track |
 | `/tackle list-upstreams` | List tracked upstreams |
 | `/tackle remove-upstream <org/repo>` | Remove tracked upstream |
