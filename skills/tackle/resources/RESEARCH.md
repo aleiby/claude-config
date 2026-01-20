@@ -12,12 +12,53 @@ gh auth status || echo "ERROR: gh CLI not authenticated. Run: gh auth login"
 
 # Check git remotes exist
 git remote -v | grep -q . || echo "ERROR: No git remotes configured"
-
-# Check issue exists
-bd show <issue-id> || echo "ERROR: Issue not found"
 ```
 
 If any check fails, stop and resolve before proceeding.
+
+### Issue Resolution
+
+The user's input may be an issue ID, a partial match, or a description of new work.
+
+**Step 1: Try direct lookup**
+```bash
+bd show <input> 2>/dev/null
+```
+
+If this succeeds, use this issue and continue to Section 2.
+
+**Step 2: If direct lookup fails, search for fuzzy matches**
+```bash
+bd list --status=open --json | jq -r '.[] | "\(.id): \(.title)"'
+```
+
+Search titles and descriptions for keywords from the user's input. Present any matches:
+
+```
+I couldn't find an issue with ID "<input>". Did you mean one of these?
+
+  gt-1234: Update documentation for new API
+  gt-1256: Fix docs build script
+
+Which one? (or "none" to create a new issue)
+```
+
+**Step 3: If no matches (or user says "none"), offer to create**
+```
+I couldn't find a matching issue. Would you like me to create one?
+
+  Title: <inferred from input>
+  Type: task (or bug/feature if obvious from context)
+
+Create this issue? (yes/no, or provide a different title)
+```
+
+If user confirms:
+```bash
+bd create --title="<title>" --type=<type> --priority=2
+```
+
+Use the returned issue ID and continue.
 
 ### First-Time Setup: Install Formula
 
