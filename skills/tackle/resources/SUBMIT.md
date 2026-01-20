@@ -1,6 +1,6 @@
 # Submit Phase
 
-Mark the draft PR as ready for review after approval.
+Mark the draft PR as ready for review after gate-submit approval.
 
 ## Pre-Submit Checklist
 
@@ -8,53 +8,42 @@ Before this phase, verify gate-submit was approved (check that it's closed).
 
 **Do not submit without approval.**
 
-## Recover PR Info
+## Mark PR Ready
 
-If resuming after session handoff, recover the PR info:
+The draft PR was created during gate-submit (see SKILL.md for idempotent PR check).
+Now we mark it ready for maintainer review.
+
+### 1. Get PR Number
+
+PR info should be available from the gate-submit step. If resuming:
 
 ```bash
-# Option 1: Find PR by branch name (most reliable)
 BRANCH=$(git branch --show-current)
 FORK_OWNER=$(gh repo view --json owner --jq '.owner.login')
 PR_NUMBER=$(gh pr list --repo <upstream> --head "$FORK_OWNER:$BRANCH" --json number --jq '.[0].number')
-
-# Option 2: Check gate-submit step notes (stored during gate approval)
-if [ -z "$PR_NUMBER" ]; then
-  # Find the gate-submit step from molecule
-  GATE_STEP=$(bd --no-daemon mol current --json 2>/dev/null | jq -r '.steps[] | select(.title | contains("Pre-submit")) | .id' | head -1)
-  if [ -n "$GATE_STEP" ]; then
-    PR_INFO=$(bd show "$GATE_STEP" --json | jq -r '.[0].notes')
-    PR_NUMBER=$(echo "$PR_INFO" | grep pr_number | cut -d: -f2 | tr -d ' ')
-  fi
-fi
-
-# Option 3: Check if PR already marked ready
-if [ -n "$PR_NUMBER" ]; then
-  IS_DRAFT=$(gh pr view "$PR_NUMBER" --repo <upstream> --json isDraft --jq '.isDraft')
-  if [ "$IS_DRAFT" = "false" ]; then
-    echo "PR #$PR_NUMBER already marked ready - nothing to do"
-    # Skip to record phase
-  fi
-fi
 ```
 
-## Mark PR Ready
-
-The draft PR was created during gate-submit. Now we mark it ready for maintainer review.
-
-### 1. Mark Draft as Ready
+### 2. Mark Draft as Ready
 
 ```bash
-# PR_NUMBER recovered above or from context
-
-# Mark the draft PR as ready for review
 gh pr ready $PR_NUMBER --repo <upstream-org>/<upstream-repo>
-
-# Verify status
-gh pr view $PR_NUMBER --repo <upstream-org>/<upstream-repo> --json state,isDraft
 ```
 
-### 2. Capture Final PR URL
+### 3. Verify PR is Ready
+
+```bash
+IS_DRAFT=$(gh pr view $PR_NUMBER --repo <upstream> --json isDraft --jq '.isDraft')
+if [ "$IS_DRAFT" = "true" ]; then
+  echo "ERROR: PR #$PR_NUMBER still in draft - gh pr ready may have failed"
+  # Retry or investigate
+  exit 1
+fi
+
+STATE=$(gh pr view $PR_NUMBER --repo <upstream> --json state --jq '.state')
+echo "PR #$PR_NUMBER is $STATE and ready for review"
+```
+
+### 4. Capture Final PR URL
 
 ```bash
 PR_URL=$(gh pr view $PR_NUMBER --repo <upstream-org>/<upstream-repo> --json url --jq '.url')
@@ -63,7 +52,7 @@ echo "PR submitted: $PR_URL"
 
 ## PR Title and Body Reference
 
-If you need to update the PR before marking ready, use:
+If you need to update the PR before marking ready:
 
 ```bash
 # Update title
@@ -190,20 +179,19 @@ Solutions:
 - Use different branch name
 ```
 
-### PR Creation Fails
+### PR Ready Fails
 
 ```
-Error: Failed to create PR
+Error: gh pr ready failed
 
 Possible causes:
-- Not authenticated with gh
-- PR already exists for this branch
-- Target repo doesn't accept PRs
+- PR doesn't exist
+- Network issue
+- Permission denied
 
 Solutions:
-- gh auth login
-- Check existing PRs: gh pr list --head <branch>
-- Verify repo accepts contributions
+- Check PR exists: gh pr view $PR_NUMBER --repo <upstream>
+- Retry: gh pr ready $PR_NUMBER --repo <upstream>
 ```
 
 ## Upstream Management Commands

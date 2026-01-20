@@ -63,7 +63,7 @@ plan:
   approach: "<approach>"
 ```
 
-Then **STOP** - proceed to gate-plan (see GATES.md).
+Then **STOP** - proceed to gate-plan (see SKILL.md).
 
 ## Working Directory
 
@@ -73,7 +73,7 @@ Then **STOP** - proceed to gate-plan (see GATES.md).
 pwd  # Verify you're in your own rig before making changes
 ```
 
-Don't edit files in other agents' directories. If unsure about the directory structure, consult the architecture doc in the rig's `docs/design/` folder.
+Don't edit files in other agents' directories.
 
 ## Branch Phase
 
@@ -82,32 +82,17 @@ After plan approval, create clean branch from upstream.
 ### Fetch Latest
 
 ```bash
-git fetch upstream
-```
-
-If no upstream remote:
-```bash
-git fetch origin
-```
-
-### Detect Default Branch
-
-Don't assume `main` - detect the actual default branch:
-
-```bash
-# For upstream remote
-DEFAULT_BRANCH=$(git remote show upstream 2>/dev/null | grep 'HEAD branch' | cut -d: -f2 | xargs)
-
-# Fallback to origin if no upstream
-if [ -z "$DEFAULT_BRANCH" ]; then
-  DEFAULT_BRANCH=$(git remote show origin | grep 'HEAD branch' | cut -d: -f2 | xargs)
-fi
-
-# Common defaults: main, master, develop
-echo "Default branch: $DEFAULT_BRANCH"
+git fetch upstream || git fetch origin
 ```
 
 ### Create Branch
+
+Use upstream and default branch from RESEARCH.md Section 2:
+
+```bash
+# DEFAULT_BRANCH and UPSTREAM_REF from RESEARCH.md
+git checkout -b <type>/<issue-id>-<description> $UPSTREAM_REF
+```
 
 Branch naming: `<type>/<issue-id>-<short-description>`
 
@@ -118,12 +103,9 @@ Types:
 - `refactor/` - Refactoring
 - `test/` - Test additions
 
+Example:
 ```bash
-# From upstream default branch (preferred)
-git checkout -b fix/hq-1234-doctor-indent upstream/$DEFAULT_BRANCH
-
-# Or from origin if no upstream
-git checkout -b fix/hq-1234-doctor-indent origin/$DEFAULT_BRANCH
+git checkout -b fix/hq-1234-doctor-indent upstream/main
 ```
 
 ### Update Molecule
@@ -131,7 +113,7 @@ git checkout -b fix/hq-1234-doctor-indent origin/$DEFAULT_BRANCH
 ```yaml
 phase: "implement"
 branch: "fix/hq-1234-doctor-indent"
-branch_base: "upstream/main"  # use actual detected default branch
+branch_base: "upstream/main"
 ```
 
 ## Implement Phase

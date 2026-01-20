@@ -19,17 +19,36 @@ required = false
 id = "bootstrap"
 title = "Bootstrap upstream research"
 description = """
-1. Detect upstream from git remotes (upstream > fork-source > origin)
-2. Check research cache freshness (>24h = stale)
-3. If stale, refresh: CONTRIBUTING.md, PR patterns, CI requirements
-4. Store in .beads/metadata/upstream/<org>-<repo>/
+See RESEARCH.md Sections 1-5.
+
+1. Pre-flight checks (gh auth, git remotes, issue exists)
+2. Detect upstream from git remotes (upstream > fork-source > origin)
+3. Detect default branch
+4. Check research cache freshness (>24h = stale)
+5. If stale, refresh: CONTRIBUTING.md, PR patterns, open issues
+6. Discover related upstreams from README
+"""
+
+[[steps]]
+id = "gate-bootstrap"
+title = "GATE: Research review"
+needs = ["bootstrap"]
+description = """
+**CHECKPOINT** (appears when research cache updated)
+
+Present research summary and any related upstream suggestions.
+User can add related upstreams or skip.
+
+See SKILL.md bootstrap gate section for presentation format.
 """
 
 [[steps]]
 id = "context"
 title = "Search upstream for related work"
-needs = ["bootstrap"]
+needs = ["gate-bootstrap"]
 description = """
+See RESEARCH.md Section 6.
+
 Fuzzy search upstream for:
 - Issues with similar keywords/titles
 - Open PRs addressing related problems
@@ -44,8 +63,10 @@ id = "existing-pr-check"
 title = "Check for existing fix PR"
 needs = ["context"]
 description = """
+See RESEARCH.md Section 7.
+
 If a highly-relevant open PR exists that would fix our issue:
-1. Present options: apply-pr, wait-upstream, implement-anyway
+1. Present options (natural language accepted)
 2. If apply-pr: fetch, test locally, close if passes
 3. If wait-upstream: mark blocked, track PR status
 4. If implement-anyway: continue to plan
@@ -56,6 +77,8 @@ id = "plan"
 title = "Create implementation plan"
 needs = ["existing-pr-check"]
 description = """
+See IMPLEMENT.md Plan Phase.
+
 Create implementation plan based on:
 - Issue requirements
 - Upstream context (patterns, conventions)
@@ -74,6 +97,7 @@ Present plan to user. Wait for explicit approval:
   /tackle --gate reject
 
 DO NOT PROCEED WITHOUT APPROVAL.
+See SKILL.md gate-plan section.
 """
 
 [[steps]]
@@ -81,8 +105,12 @@ id = "branch"
 title = "Create clean branch"
 needs = ["gate-plan"]
 description = """
+See IMPLEMENT.md Branch Phase.
+
 git fetch upstream
 git checkout -b <type>/<issue-id>-<description> upstream/$DEFAULT_BRANCH
+
+Use default branch from RESEARCH.md Section 2.
 """
 
 [[steps]]
@@ -90,6 +118,8 @@ id = "implement"
 title = "Implement solution"
 needs = ["branch"]
 description = """
+See IMPLEMENT.md Implement Phase.
+
 Implement following upstream conventions.
 Commit atomically with conventional commit messages.
 """
@@ -99,6 +129,8 @@ id = "validate"
 title = "Validate implementation"
 needs = ["implement"]
 description = """
+See VALIDATION.md.
+
 - Run tests
 - Check isolation (single concern)
 - Verify branch is rebased on upstream
@@ -111,15 +143,22 @@ needs = ["validate"]
 description = """
 **MANDATORY STOP**
 
+On entering this gate:
+1. Check if draft PR already exists (idempotent)
+2. If not, create draft PR on upstream
+3. Present for review
+
 Show full PR preview:
+- Draft PR URL on upstream
 - Title, body, files changed
-- Target branch
+- Validation results
 
 Wait for explicit approval:
   /tackle --gate approve
   /tackle --gate reject
 
-DO NOT SUBMIT PR WITHOUT APPROVAL.
+DO NOT MARK PR READY WITHOUT APPROVAL.
+See SKILL.md gate-submit section.
 """
 
 [[steps]]
@@ -127,8 +166,11 @@ id = "submit"
 title = "Submit PR"
 needs = ["gate-submit"]
 description = """
+See SUBMIT.md.
+
 Only after explicit approval:
-gh pr create --title "..." --body "..."
+1. Mark draft PR as ready for review: gh pr ready
+2. Verify PR is no longer in draft state
 """
 
 [[steps]]
@@ -136,6 +178,8 @@ id = "record"
 title = "Record outcome"
 needs = ["submit"]
 description = """
+See SUBMIT.md Record Phase.
+
 Track PR URL and outcome for future learning.
 Update local issue with PR link.
 """
@@ -145,13 +189,12 @@ id = "retro"
 title = "Retrospective"
 needs = ["record"]
 description = """
+See RETRO.md.
+
 Reflect on issues tackle could help prevent in future runs.
 
-**Fix immediately**: Objective errors (wrong flags, syntax errors, missing required params).
-**Log to journal**: Subjective friction (confusing steps, suggestions, systemic issues).
+**Fix immediately**: Objective errors (wrong flags, syntax errors).
+**Note for pattern detection**: Subjective friction via molecule history.
 
-Only propose fixes for subjective issues after 2+ occurrences in journal.
 Ignore task-specific issues (test failures, upstream quirks).
-
-See RETRO.md for details.
 """

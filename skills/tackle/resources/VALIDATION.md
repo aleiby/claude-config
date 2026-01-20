@@ -4,14 +4,10 @@ Verify implementation before submission.
 
 ## Setup
 
-Detect the upstream default branch (same as IMPLEMENT.md):
-
+Use upstream and default branch from RESEARCH.md Section 2:
 ```bash
-DEFAULT_BRANCH=$(git remote show upstream 2>/dev/null | grep 'HEAD branch' | cut -d: -f2 | xargs)
-if [ -z "$DEFAULT_BRANCH" ]; then
-  DEFAULT_BRANCH=$(git remote show origin | grep 'HEAD branch' | cut -d: -f2 | xargs)
-fi
-UPSTREAM_REF="upstream/$DEFAULT_BRANCH"
+# UPSTREAM_REF should already be set from earlier phases
+# If resuming, re-detect per RESEARCH.md Section 2
 ```
 
 ## Validation Checklist
@@ -73,8 +69,6 @@ Verify PR addresses single concern:
 ```bash
 # List changed files
 git diff --name-only $UPSTREAM_REF
-
-# Review each file - does it relate to the issue?
 ```
 
 **Isolation criteria:**
@@ -156,7 +150,7 @@ validation:
   validated_at: "2026-01-19T12:00:00Z"
 ```
 
-Then **STOP** - proceed to gate-submit (see GATES.md).
+Then **STOP** - proceed to gate-submit (see SKILL.md).
 
 ## Validation Failures
 

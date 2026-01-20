@@ -22,11 +22,6 @@ user-invocable: true
 /tackle --refresh               Force refresh upstream research
 /tackle --help                  Show all options
 
-When existing PR found:
-/tackle --apply-pr <number>     Apply upstream PR locally
-/tackle --wait-upstream         Wait for upstream merge
-/tackle --implement-anyway      Proceed with own implementation
-
 Upstream management:
 /tackle add-upstream <org/repo>     Add upstream to track
 /tackle list-upstreams              Show tracked upstreams
@@ -40,11 +35,11 @@ Loading unnecessary resources wastes context and may cause confusion.
 
 | Current Step | Load Resource |
 |--------------|---------------|
-| bootstrap | BOOTSTRAP.md |
-| context, existing-pr-check | CONTEXT.md |
+| bootstrap, gate-bootstrap | RESEARCH.md |
+| context, existing-pr-check | RESEARCH.md |
 | plan, branch, implement | IMPLEMENT.md |
 | validate | VALIDATION.md |
-| gate-plan, gate-submit | GATES.md (detailed UI below) |
+| gate-plan, gate-submit | (gate details below) |
 | submit, record | SUBMIT.md |
 | retro | RETRO.md |
 
@@ -60,6 +55,9 @@ and installed to the rig's `.beads/formulas/` on first use.
 # Create molecule (requires --no-daemon)
 bd --no-daemon mol pour tackle --var issue=<id>
 # Returns: Root issue: gt-mol-xxxxx
+
+# Add formula label for pattern detection in retro phase
+bd update <molecule-id> --add-label "formula:tackle"
 
 # Attach molecule to track your work (auto-detects your agent bead from cwd)
 gt mol attach <molecule-id>
@@ -85,9 +83,9 @@ bd close <step-id> --continue   # Complete step and auto-advance
 ## Phase Flow
 
 ```
-Bootstrap → Context → [Existing PR Check] → Plan → GATE:Plan → Branch → Implement → Validate → GATE:Submit → Submit → Record → Retro
-                              ↓                                                                                              ↑
-                    [--apply-pr | --wait-upstream | --implement-anyway]                                            (can defer until PR merged)
+Bootstrap → GATE:Bootstrap → Context → [Existing PR Check] → Plan → GATE:Plan → Branch → Implement → Validate → GATE:Submit → Submit → Record → Retro
+                                              ↓                                                                                              ↑
+                                    [apply | wait | implement anyway]                                                              (can defer until PR merged)
 ```
 
 ## Execution Instructions
@@ -104,9 +102,6 @@ First, parse what the user wants:
 | `/tackle --gate reject` | Reject, return to previous phase |
 | `/tackle --abort` | Abandon tackle, clean up molecule and branch |
 | `/tackle --refresh` | Force refresh upstream research |
-| `/tackle --apply-pr <n>` | Apply upstream PR #n locally |
-| `/tackle --wait-upstream` | Mark blocked on upstream PR |
-| `/tackle --implement-anyway` | Skip existing PR, implement fresh |
 | `/tackle add-upstream <org/repo>` | Add upstream to track |
 | `/tackle list-upstreams` | List tracked upstreams |
 | `/tackle remove-upstream <org/repo>` | Remove tracked upstream |
@@ -116,7 +111,7 @@ First, parse what the user wants:
 
 When starting `/tackle <issue-id>`:
 
-1. **First-time setup**: Install formula if not present (see BOOTSTRAP.md)
+1. **First-time setup**: Install formula if not present (see RESEARCH.md)
 2. **Check for attached molecule**: `gt mol status` shows attached molecule if present
 3. **If attached**: Resume with `bd --no-daemon mol current`, `bd ready`
 4. **If new**: Create and attach molecule:
@@ -124,6 +119,9 @@ When starting `/tackle <issue-id>`:
    # Create molecule (note: requires --no-daemon)
    bd --no-daemon mol pour tackle --var issue=<issue-id>
    # Returns molecule ID like gt-mol-xxxxx
+
+   # Add formula label for pattern detection in retro phase
+   bd update <molecule-id> --add-label "formula:tackle"
 
    # Attach molecule (auto-detects your agent bead from cwd)
    gt mol attach <molecule-id>
@@ -136,78 +134,38 @@ Based on current step (from `bd --no-daemon mol current`), load the appropriate 
 
 | Step ID | Load Resource | Then |
 |---------|---------------|------|
-| `bootstrap` | `resources/BOOTSTRAP.md` | Check/refresh upstream research |
-| `context` | `resources/CONTEXT.md` | Search upstream, check for existing PRs |
-| `existing-pr-check` | `resources/CONTEXT.md` | Present options if PR found |
+| `bootstrap` | `resources/RESEARCH.md` | Check/refresh upstream research |
+| `gate-bootstrap` | (see below) | **CHECKPOINT** - Present research summary |
+| `context` | `resources/RESEARCH.md` | Search upstream, check for existing PRs |
+| `existing-pr-check` | `resources/RESEARCH.md` | Present options if PR found |
 | `plan` | `resources/IMPLEMENT.md` | Create implementation plan |
-| `gate-plan` | `resources/GATES.md` | **STOP** - Wait for approval |
+| `gate-plan` | (see below) | **STOP** - Wait for approval |
 | `branch` | `resources/IMPLEMENT.md` | Create clean branch |
 | `implement` | `resources/IMPLEMENT.md` | Write code |
 | `validate` | `resources/VALIDATION.md` | Run tests, check isolation |
-| `gate-submit` | `resources/GATES.md` | **STOP** - Wait for approval |
+| `gate-submit` | (see below) | **STOP** - Wait for approval |
 | `submit` | `resources/SUBMIT.md` | Mark PR ready |
 | `record` | `resources/SUBMIT.md` | Record outcome |
 | `retro` | `resources/RETRO.md` | Reflect on skill issues (see below) |
 
-## MANDATORY APPROVAL GATES
+---
 
-**CRITICAL SAFETY RULE - READ THIS SECTION COMPLETELY**
+## APPROVAL GATES
 
-There are TWO mandatory gates that require explicit human approval:
+**CRITICAL SAFETY RULES - READ THIS SECTION COMPLETELY**
 
-### Gate 1: `gate-plan` (after plan creation)
+### Approval Detection
 
-```
-╔═══════════════════════════════════════════════════════════════════╗
-║  🛑  MANDATORY STOP - GATE: Plan Review                           ║
-║                                                                   ║
-║  DO NOT PROCEED until user explicitly approves.                   ║
-║                                                                   ║
-║  Present the plan, then STOP and WAIT.                            ║
-║                                                                   ║
-║  Approval required:                                               ║
-║    /tackle --gate approve   OR   "approve", "yes", "lgtm"         ║
-║                                                                   ║
-║  To reject and revise:                                            ║
-║    /tackle --gate reject    OR   "reject", "no", "revise"         ║
-╚═══════════════════════════════════════════════════════════════════╝
-```
+Accept these as **approval**:
+- `/tackle --gate approve`
+- "approve", "approved", "proceed", "continue"
+- "yes", "lgtm", "looks good", "go ahead"
+- "submit", "ship it" (at gate-submit only)
 
-### Gate 2: `gate-submit` (before PR submission)
-
-```
-╔═══════════════════════════════════════════════════════════════════╗
-║  🛑  MANDATORY STOP - GATE: Pre-Submit Review                     ║
-║                                                                   ║
-║  DO NOT SUBMIT PR until user explicitly approves.                 ║
-║                                                                   ║
-║  1. Push branch to origin for review                              ║
-║  2. Create draft PR on origin (or provide compare URL)            ║
-║  3. Show PR link so user can review on GitHub                     ║
-║  4. STOP and WAIT for approval                                    ║
-║                                                                   ║
-║  Approval required:                                               ║
-║    /tackle --gate approve   OR   "approve", "submit", "ship it"   ║
-║                                                                   ║
-║  To reject and revise:                                            ║
-║    /tackle --gate reject    OR   "reject", "wait", "hold"         ║
-╚═══════════════════════════════════════════════════════════════════╝
-```
-
-**Pre-submit review workflow:**
-```bash
-# Push branch to origin (your fork)
-git push -u origin <branch-name>
-
-# Create draft PR directly on UPSTREAM (visible but not ready for review)
-gh pr create --repo <upstream-org>/<upstream-repo> --draft \
-  --head <fork-owner>:<branch-name> --title "<title>" --body "<body>"
-
-# Get the PR URL for review
-PR_URL=$(gh pr view --repo <upstream-org>/<upstream-repo> --json url --jq '.url')
-```
-
-This creates the actual PR on upstream as a draft. You can review exactly what will be submitted. On approval, we mark the draft as "ready for review" with `gh pr ready`.
+Accept these as **rejection**:
+- `/tackle --gate reject`
+- "reject", "no", "stop"
+- "wait", "revise", "hold", "change"
 
 ### Gate Rules (NEVER VIOLATE)
 
@@ -217,7 +175,273 @@ This creates the actual PR on upstream as a draft. You can review exactly what w
 4. **ALL agents** (mayor, crew, polecats) stop at gates - no exceptions
 5. If no human in loop, **WAIT INDEFINITELY** at the gate
 
-See `resources/GATES.md` for gate UI formatting details.
+---
+
+## Gate 0: `gate-bootstrap` (Research Checkpoint)
+
+**CHECKPOINT** - Appears when research cache is updated.
+
+This is a soft gate for presenting research results and suggesting related upstreams.
+
+```
++-------------------------------------------------------------------+
+|  CHECKPOINT: Bootstrap Research Complete                           |
++-------------------------------------------------------------------+
+
+Upstream: steveyegge/gastown
+Guidelines: Found CONTRIBUTING.md
+Open issues: 12 | Open PRs: 3
+
+## Research Summary
+- Commit style: present tense, max 72 chars
+- Testing: go test ./...
+- PR requires: description, test plan
+
+## Related Projects Detected
+From README:
+  - steveyegge/beads (mentioned in dependencies)
+
+Track additional upstreams for context?
+  /tackle add-upstream steveyegge/beads
+
+Or respond naturally: "yes, add beads", "skip", "no thanks"
+```
+
+### On Response
+
+- If user wants to add upstreams: run add-upstream flow, then continue
+- If user skips: continue to context phase
+
+```bash
+bd close <gate-bootstrap-step-id> --continue
+```
+
+---
+
+## Gate 1: `gate-plan` (Plan Review)
+
+**MANDATORY STOP** - Do not proceed without explicit approval.
+
+```
++===================================================================+
+|  MANDATORY STOP - GATE: Plan Review                                |
+|                                                                    |
+|  DO NOT PROCEED until user explicitly approves.                    |
+|                                                                    |
+|  Present the plan, then STOP and WAIT.                             |
+|                                                                    |
+|  Approval required:                                                |
+|    /tackle --gate approve   OR   "approve", "yes", "lgtm"          |
+|                                                                    |
+|  To reject and revise:                                             |
+|    /tackle --gate reject    OR   "reject", "no", "revise"          |
++===================================================================+
+```
+
+### Gate 1 Presentation Format
+
+```
++------------------------------------------------------------------+
+|                    GATE: Plan Review                              |
++------------------------------------------------------------------+
+
+Plan for <issue-id>: <issue-title>
+
+## Scope
+  - Files: <list of files to modify>
+  - Estimated changes: ~<n> lines
+
+## Approach
+<brief description of implementation approach>
+
+## Upstream Context
+  - Conflicting PRs: <none | list>
+  - Hot areas: <none | list with reasons>
+
++------------------------------------------------------------------+
+| What would you like to do?                                        |
+|                                                                   |
+|   /tackle --gate approve    Continue to implementation            |
+|   /tackle --gate reject     Revise the plan                       |
+|                                                                   |
+| Or respond naturally: "approve", "looks good", "revise", etc.     |
++------------------------------------------------------------------+
+```
+
+### On Approve
+
+```bash
+bd close <gate-plan-step-id> --continue
+```
+
+Proceed to branch creation.
+
+### On Reject
+
+```
+What would you like to change about the plan?
+```
+
+Stay in plan phase, revise based on feedback.
+
+---
+
+## Gate 2: `gate-submit` (Pre-Submit Review)
+
+**MANDATORY STOP** - Do not submit PR without explicit approval.
+
+### Idempotent Entry (Critical for Session Recovery)
+
+When entering gate-submit, FIRST check if a draft PR already exists:
+
+```bash
+BRANCH=$(git branch --show-current)
+FORK_OWNER=$(gh repo view --json owner --jq '.owner.login')
+PR_JSON=$(gh pr list --repo <upstream> --head "$FORK_OWNER:$BRANCH" --json number,isDraft,url --jq '.[0]')
+
+if [ -n "$PR_JSON" ]; then
+  PR_NUMBER=$(echo "$PR_JSON" | jq -r '.number')
+  IS_DRAFT=$(echo "$PR_JSON" | jq -r '.isDraft')
+  PR_URL=$(echo "$PR_JSON" | jq -r '.url')
+
+  if [ "$IS_DRAFT" = "false" ]; then
+    # Already submitted - skip to record phase
+    echo "PR #$PR_NUMBER already marked ready - continuing to record"
+  else
+    # Draft exists - present it for review
+    echo "Found existing draft PR #$PR_NUMBER"
+  fi
+else
+  # No PR exists - create draft
+  git push -u origin $BRANCH
+  gh pr create --repo <upstream> --draft \
+    --head "$FORK_OWNER:$BRANCH" \
+    --title "<title>" --body "<body>"
+  PR_URL=$(gh pr view --repo <upstream> --json url --jq '.url')
+fi
+```
+
+This ensures the session can end anywhere and resume cleanly. GitHub is the source of truth.
+
+### Gate 2 Presentation Format
+
+```
++===================================================================+
+|  MANDATORY STOP - GATE: Pre-Submit Review                          |
+|                                                                    |
+|  DO NOT SUBMIT PR until user explicitly approves.                  |
+|                                                                    |
+|  Review the draft PR on GitHub, then approve or reject.            |
++===================================================================+
+
+Draft PR for <issue-id>:
+
+## Review on GitHub (DRAFT)
+<upstream-pr-url>
+
+## Title
+<pr-title>
+
+## Target
+<upstream-org>/<upstream-repo> <- <fork-owner>:<branch-name>
+
+## Summary
+<pr-body-preview>
+
+## Changes
+<file-list with +/- counts>
+
+## Validation
+  - Tests: PASSED
+  - Isolation: PASSED (single concern)
+  - Rebased: Yes, on upstream default branch
+
++------------------------------------------------------------------+
+| This is the actual PR on upstream (in draft state).               |
+| Review on GitHub, then:                                           |
+|                                                                   |
+|   /tackle --gate approve    Mark PR ready for review              |
+|   /tackle --gate reject     Return to implementation              |
+|                                                                   |
+| Or respond naturally: "submit", "looks good", "wait", etc.        |
++------------------------------------------------------------------+
+
+Note: PR exists on upstream as DRAFT. Approval marks it ready for maintainer review.
+```
+
+### On Approve
+
+Store PR info in the gate bead before closing (for recovery after compaction):
+
+```bash
+GATE_BEAD=$(bd --no-daemon mol current --json | jq -r '.current_step.id')
+
+bd update "$GATE_BEAD" --notes="pr_number: $PR_NUMBER
+pr_url: $PR_URL
+approved_at: $(date -Iseconds)"
+
+bd close "$GATE_BEAD" --reason "Approved - PR #$PR_NUMBER ready for review" --continue
+```
+
+Proceed to submit phase (marks the draft PR as ready for review).
+
+### On Reject
+
+```
+What would you like to change before submission?
+Options:
+  - Modify implementation (will force-push to update draft PR)
+  - Update PR title/body (can edit draft PR directly)
+  - Add more tests
+  - Close draft PR and start over
+  - Other changes
+```
+
+Return to implement phase for revisions.
+
+---
+
+## Gate Help
+
+If user asks for help or seems confused at a gate:
+
+```
+You're at the <gate-name> gate.
+
+This is a mandatory approval checkpoint. The skill will not proceed
+until you explicitly approve or reject.
+
+Commands:
+  /tackle --gate approve    Approve and continue
+  /tackle --gate reject     Go back and revise
+  /tackle --status          Show current state
+  /tackle --help            Show all options
+
+You can also respond naturally:
+  "yes", "approve", "looks good" -> approve
+  "no", "wait", "revise" -> reject
+```
+
+## Agent Safety
+
+**Critical for autonomous agents:**
+
+Gates apply to ALL agents equally:
+- Mayor: stops at gates
+- Crew: stops at gates
+- Polecats: stops at gates
+
+No agent can bypass gates. No role-specific exceptions.
+
+If an agent reaches a gate without a human in the loop:
+1. Present gate
+2. Wait for human approval
+3. Do not timeout and auto-approve
+4. Do not proceed on any heuristic
+
+This ensures no autonomous PR submission.
+
+---
 
 ## Retrospective (Quick Reference)
 
@@ -230,9 +454,7 @@ bd close <retro-step-id> --reason "Clean run - no issues"
 
 **If there were issues** - load RETRO.md for full guidance:
 - **Fix immediately**: Objective errors (wrong flags, syntax errors)
-- **Log to journal**: Subjective friction (confusing steps, systemic issues that tackle could help prevent)
-
-Journal tracks patterns. Only propose fixes for subjective issues after 2+ occurrences.
+- **Note for patterns**: Subjective friction detected via molecule history
 
 ### Completing Steps
 
@@ -267,23 +489,19 @@ The issue returns to ready state for future work.
 
 ### Upstream Detection
 
+See RESEARCH.md Section 2 for canonical upstream and default branch detection.
+
 Priority for detecting upstream:
 1. Git remote named `upstream`
 2. Git remote named `fork-source`
 3. Origin (if not a fork)
-
-```bash
-git remote -v | grep -E '^(upstream|fork-source|origin)' | head -1
-```
 
 ## Resource Loading
 
 Resources are in the `resources/` folder relative to this SKILL.md file.
 
 When you loaded this skill, note the directory path. Resources are at:
-- `<skill-dir>/resources/BOOTSTRAP.md`
-- `<skill-dir>/resources/CONTEXT.md`
-- `<skill-dir>/resources/GATES.md`
+- `<skill-dir>/resources/RESEARCH.md`
 - `<skill-dir>/resources/IMPLEMENT.md`
 - `<skill-dir>/resources/VALIDATION.md`
 - `<skill-dir>/resources/SUBMIT.md`
@@ -292,7 +510,7 @@ When you loaded this skill, note the directory path. Resources are at:
 
 Only load the resource needed for the current phase to minimize context.
 
-On first use, BOOTSTRAP copies the formula to the rig's `.beads/formulas/`.
+On first use, RESEARCH.md copies the formula to the rig's `.beads/formulas/`.
 
 ## Session Handoff
 
@@ -316,7 +534,7 @@ Branch: <branch-name>
 ### Key State
 - Draft PR: #<number> (if created)
 - PR URL: <url>
-- Gate approvals: plan ✓, submit pending
+- Gate approvals: plan ok, submit pending
 
 ### Next Action
 <what the next session should do>
