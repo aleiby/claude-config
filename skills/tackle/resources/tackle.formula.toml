@@ -189,7 +189,7 @@ id = "retro"
 title = "Retrospective"
 needs = ["record"]
 description = """
-See RETRO.md.
+See REFLECT.md.
 
 Reflect on issues tackle could help prevent in future runs.
 

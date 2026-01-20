@@ -41,7 +41,7 @@ Loading unnecessary resources wastes context and may cause confusion.
 | validate | VALIDATION.md |
 | gate-plan, gate-submit | (gate details below) |
 | submit, record | SUBMIT.md |
-| retro | RETRO.md |
+| retro | REFLECT.md |
 
 Check current step with `bd --no-daemon mol current`, then load ONLY the matching resource.
 
@@ -146,7 +146,7 @@ Based on current step (from `bd --no-daemon mol current`), load the appropriate 
 | `gate-submit` | (see below) | **STOP** - Wait for approval |
 | `submit` | `resources/SUBMIT.md` | Mark PR ready |
 | `record` | `resources/SUBMIT.md` | Record outcome |
-| `retro` | `resources/RETRO.md` | Reflect on skill issues (see below) |
+| `retro` | `resources/REFLECT.md` | Reflect on skill issues (see below) |
 
 ---
 
@@ -447,12 +447,12 @@ This ensures no autonomous PR submission.
 
 The `retro` step captures issues with the tackle process itself (not task-specific problems).
 
-**If the run was smooth** - no need to load RETRO.md:
+**If the run was smooth** - no need to load REFLECT.md:
 ```bash
 bd close <retro-step-id> --reason "Clean run - no issues"
 ```
 
-**If there were issues** - load RETRO.md for full guidance:
+**If there were issues** - load REFLECT.md for full guidance:
 - **Fix immediately**: Objective errors (wrong flags, syntax errors)
 - **Note for patterns**: Subjective friction detected via molecule history
 
@@ -505,7 +505,7 @@ When you loaded this skill, note the directory path. Resources are at:
 - `<skill-dir>/resources/IMPLEMENT.md`
 - `<skill-dir>/resources/VALIDATION.md`
 - `<skill-dir>/resources/SUBMIT.md`
-- `<skill-dir>/resources/RETRO.md`
+- `<skill-dir>/resources/REFLECT.md`
 - `<skill-dir>/resources/tackle.formula.toml`
 
 Only load the resource needed for the current phase to minimize context.
