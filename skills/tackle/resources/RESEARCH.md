@@ -204,6 +204,7 @@ if [ -z "$CACHE_BEAD" ]; then
   CACHE_BEAD=$(bd create \
     --title "Upstream research: $ORG_REPO" \
     --type task \
+    --status deferred \
     --label tackle-cache \
     --external-ref "upstream:$ORG_REPO" \
     --description "$RESEARCH_YAML" \

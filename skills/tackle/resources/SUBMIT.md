@@ -207,6 +207,7 @@ Solutions:
    bd create \
      --title "Upstream research: steveyegge/gastown" \
      --type task \
+     --status deferred \
      --label tackle-cache \
      --external-ref "upstream:steveyegge/gastown" \
      --description "# Pending initial research fetch"
