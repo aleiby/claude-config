@@ -14,16 +14,11 @@ user-invocable: true
 ## Quick Reference
 
 ```
-/tackle <issue>                 Start working on issue
-/tackle --status                Show current state
-/tackle --abort                 Abandon tackle, clean up
-/tackle --refresh               Force refresh upstream research
-/tackle --help                  Show this help
-
-Upstream management:
-/tackle add-upstream <org/repo>     Add upstream to track
-/tackle list-upstreams              Show tracked upstreams
-/tackle remove-upstream <org/repo>  Remove upstream
+/tackle <issue>       Start working on issue
+/tackle --status      Show current state
+/tackle --abort       Abandon tackle, clean up
+/tackle --refresh     Force refresh upstream research
+/tackle --help        Show this help
 ```
 
 When user asks for help, show this Quick Reference section.
@@ -101,9 +96,6 @@ First, parse what the user wants:
 | `/tackle --abort` | Abandon tackle, clean up molecule and branch |
 | `/tackle --refresh` | Force refresh upstream research |
 | `/tackle --help` | Show Quick Reference to user |
-| `/tackle add-upstream <org/repo>` | Add upstream to track |
-| `/tackle list-upstreams` | List tracked upstreams |
-| `/tackle remove-upstream <org/repo>` | Remove tracked upstream |
 
 ### Starting New Tackle
 
@@ -192,21 +184,9 @@ Open issues: 12 | Open PRs: 3
 - Commit style: present tense, max 72 chars
 - Testing: go test ./...
 - PR requires: description, test plan
-
-## Related Projects Detected
-From README:
-  - steveyegge/beads (mentioned in dependencies)
-
-Track additional upstreams for context?
-  /tackle add-upstream steveyegge/beads
-
-Or respond naturally: "yes, add beads", "skip", "no thanks"
 ```
 
 ### On Response
-
-- If user wants to add upstreams: run add-upstream flow, then continue
-- If user skips: continue to context phase
 
 ```bash
 bd close <gate-bootstrap-step-id> --continue

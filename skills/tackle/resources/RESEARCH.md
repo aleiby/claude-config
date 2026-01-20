@@ -311,6 +311,15 @@ echo "$RESEARCH" | yq '.open_issues_json' | jq '.[] | select(.title | test("keyw
 echo "$RESEARCH" | yq '.open_prs_json' | jq '.[] | select(.title | test("keyword"; "i"))'
 ```
 
+### Check for Linked PRs
+
+PRs using "Fixes #XXX" won't appear in title searches. Check the timeline first:
+
+```bash
+gh api repos/$ORG_REPO/issues/<issue-number>/timeline \
+  --jq '.[] | select(.event == "cross-referenced") | .source.issue | {number, title, state, html_url}'
+```
+
 ## Section 7: Existing PR Handling
 
 **Critical**: If a highly-relevant open PR exists that would fix our issue:
