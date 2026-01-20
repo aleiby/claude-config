@@ -2,10 +2,13 @@
 name: tackle
 description: |
   Upstream-aware issue implementation workflow with mandatory approval gates.
-  Use when: working on bugs, features, or issues resulting in a PR;
-  user says "tackle", "work on hq-", "work on bd-", "implement hq-", "fix hq-";
-  implementing contributions to upstream repositories.
   Checks upstream for existing fixes. Enforces review gates before PR submission.
+
+  INVOKE THIS SKILL when user says any of:
+  - "tackle" (including "let's tackle", "tackle this", "tackle the X issue")
+  - "work on hq-*" or "work on bd-*" or "work on gt-*"
+  - "implement hq-*" or "fix hq-*"
+  - working on bugs, features, or issues that will result in a PR
 user-invocable: true
 ---
 
