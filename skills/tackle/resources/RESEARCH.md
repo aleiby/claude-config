@@ -313,6 +313,25 @@ git log --oneline HEAD..$UPSTREAM_REF | head -20
 
 Review commits for fixes related to our issue, changes in files we plan to modify.
 
+### Check Own Open PRs
+
+Before starting new work, check if you have open PRs needing attention:
+
+```bash
+gh pr list --repo $ORG_REPO --author @me --json number,title,statusCheckRollup,mergeable \
+  --jq '.[] | select(.statusCheckRollup == "FAILURE" or .mergeable == "CONFLICTING")'
+```
+
+If any PRs have CI failures or merge conflicts, alert the user:
+
+```
+Note: You have open PRs needing attention:
+  - #123: "Fix X" - CI failing
+  - #456: "Add Y" - merge conflicts
+
+Consider addressing these before starting new work.
+```
+
 ### Fuzzy Search for Related Issues
 
 ```bash
