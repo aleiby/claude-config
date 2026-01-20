@@ -32,26 +32,16 @@ If this succeeds, use this issue and continue to Section 2.
 bd list --status=open --json | jq -r '.[] | "\(.id): \(.title)"'
 ```
 
-Search titles and descriptions for keywords from the user's input. Present any matches:
-
-```
-I couldn't find an issue with ID "<input>". Did you mean one of these?
-
-  gt-1234: Update documentation for new API
-  gt-1256: Fix docs build script
-
-Which one? (or "none" to create a new issue)
-```
+Search titles and descriptions for keywords from the user's input. If matches found, present them and ask which one (or offer to create new if none fit). Keep it conversational.
 
 **Step 3: If no matches (or user says "none"), offer to create**
-```
-I couldn't find a matching issue. Would you like me to create one?
 
-  Title: <inferred from input>
-  Type: task (or bug/feature if obvious from context)
+Offer to create a bead for the work. Include:
+- Proposed title (inferred from input)
+- Proposed type (task/bug/feature based on context)
+- Ask for confirmation or adjustments
 
-Create this issue? (yes/no, or provide a different title)
-```
+Keep it conversational - no fixed script.
 
 If user confirms:
 ```bash
