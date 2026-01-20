@@ -353,6 +353,48 @@ gh api repos/$ORG_REPO/issues/<issue-number>/timeline \
   --jq '.[] | select(.event == "cross-referenced") | .source.issue | {number, title, state, html_url}'
 ```
 
+### Check for Issue Claims
+
+Before starting work, check if someone has already claimed the upstream issue:
+
+```bash
+gh api repos/$ORG_REPO/issues/<issue-number>/comments --jq '
+  .[-10:] | .[] | select(.body | test("working on|taking this|I.ll (work|tackle|fix)|claimed|assigned to me"; "i"))
+  | {user: .user.login, date: .created_at, body: .body[:100]}'
+```
+
+If someone claimed it recently (within ~2 weeks), alert the user:
+
+```
+Note: This issue may already be claimed:
+  @contributor (3 days ago): "I'm working on this, PR incoming"
+
+Options:
+  - Check if they're still active (view their recent activity)
+  - Coordinate with them (comment or reach out)
+  - Proceed anyway (if claim seems stale)
+```
+
+### Claiming an Issue
+
+If no one has claimed the issue and we're proceeding, offer to claim it:
+
+```
+No existing claims found on upstream issue #123.
+
+Claim this issue before starting?
+  - Yes, comment "I'd like to work on this"
+  - No, proceed without claiming
+```
+
+If user wants to claim:
+
+```bash
+gh issue comment <issue-number> --repo $ORG_REPO --body "I'd like to work on this. I'll submit a PR soon."
+```
+
+Track the claim in the molecule notes for reference.
+
 ## Section 7: Existing PR Handling
 
 **Critical**: If a highly-relevant open PR exists that would fix our issue:
