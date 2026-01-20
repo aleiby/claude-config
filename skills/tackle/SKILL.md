@@ -210,7 +210,7 @@ bd close <gate-bootstrap-step-id> --continue
 ### Show to User
 
 ```
-🛑 GATE: Plan Review
+📝 CHECKPOINT: Plan Review
 
 Plan for <issue-id>: <issue-title>
 
@@ -286,7 +286,7 @@ This ensures the session can end anywhere and resume cleanly. GitHub is the sour
 ### Show to User
 
 ```
-🛑 GATE: Pre-Submit Review
+📤 CHECKPOINT: Pre-Submit Review
 
 Draft PR for <issue-id>:
 
