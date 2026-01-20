@@ -184,9 +184,9 @@ Accept these as **rejection**:
 This is a soft gate for presenting research results and suggesting related upstreams.
 
 ```
-+-------------------------------------------------------------------+
-|  CHECKPOINT: Bootstrap Research Complete                           |
-+-------------------------------------------------------------------+
+┌────────────────────────────────────────────────────────────────────┐
+│  CHECKPOINT: Bootstrap Research Complete                           │
+└────────────────────────────────────────────────────────────────────┘
 
 Upstream: steveyegge/gastown
 Guidelines: Found CONTRIBUTING.md
@@ -223,27 +223,27 @@ bd close <gate-bootstrap-step-id> --continue
 **MANDATORY STOP** - Do not proceed without explicit approval.
 
 ```
-+===================================================================+
-|  MANDATORY STOP - GATE: Plan Review                                |
-|                                                                    |
-|  DO NOT PROCEED until user explicitly approves.                    |
-|                                                                    |
-|  Present the plan, then STOP and WAIT.                             |
-|                                                                    |
-|  Approval required:                                                |
-|    /tackle --gate approve   OR   "approve", "yes", "lgtm"          |
-|                                                                    |
-|  To reject and revise:                                             |
-|    /tackle --gate reject    OR   "reject", "no", "revise"          |
-+===================================================================+
+╔════════════════════════════════════════════════════════════════════╗
+║  MANDATORY STOP - GATE: Plan Review                                ║
+║                                                                    ║
+║  DO NOT PROCEED until user explicitly approves.                    ║
+║                                                                    ║
+║  Present the plan, then STOP and WAIT.                             ║
+║                                                                    ║
+║  Approval required:                                                ║
+║    /tackle --gate approve   OR   "approve", "yes", "lgtm"          ║
+║                                                                    ║
+║  To reject and revise:                                             ║
+║    /tackle --gate reject    OR   "reject", "no", "revise"          ║
+╚════════════════════════════════════════════════════════════════════╝
 ```
 
 ### Gate 1 Presentation Format
 
 ```
-+------------------------------------------------------------------+
-|                    GATE: Plan Review                              |
-+------------------------------------------------------------------+
+┌────────────────────────────────────────────────────────────────────┐
+│                    GATE: Plan Review                               │
+└────────────────────────────────────────────────────────────────────┘
 
 Plan for <issue-id>: <issue-title>
 
@@ -258,14 +258,14 @@ Plan for <issue-id>: <issue-title>
   - Conflicting PRs: <none | list>
   - Hot areas: <none | list with reasons>
 
-+------------------------------------------------------------------+
-| What would you like to do?                                        |
-|                                                                   |
-|   /tackle --gate approve    Continue to implementation            |
-|   /tackle --gate reject     Revise the plan                       |
-|                                                                   |
-| Or respond naturally: "approve", "looks good", "revise", etc.     |
-+------------------------------------------------------------------+
+┌────────────────────────────────────────────────────────────────────┐
+│ What would you like to do?                                         │
+│                                                                    │
+│   /tackle --gate approve    Continue to implementation             │
+│   /tackle --gate reject     Revise the plan                        │
+│                                                                    │
+│ Or respond naturally: "approve", "looks good", "revise", etc.      │
+└────────────────────────────────────────────────────────────────────┘
 ```
 
 ### On Approve
@@ -326,13 +326,13 @@ This ensures the session can end anywhere and resume cleanly. GitHub is the sour
 ### Gate 2 Presentation Format
 
 ```
-+===================================================================+
-|  MANDATORY STOP - GATE: Pre-Submit Review                          |
-|                                                                    |
-|  DO NOT SUBMIT PR until user explicitly approves.                  |
-|                                                                    |
-|  Review the draft PR on GitHub, then approve or reject.            |
-+===================================================================+
+╔════════════════════════════════════════════════════════════════════╗
+║  MANDATORY STOP - GATE: Pre-Submit Review                          ║
+║                                                                    ║
+║  DO NOT SUBMIT PR until user explicitly approves.                  ║
+║                                                                    ║
+║  Review the draft PR on GitHub, then approve or reject.            ║
+╚════════════════════════════════════════════════════════════════════╝
 
 Draft PR for <issue-id>:
 
@@ -356,15 +356,15 @@ Draft PR for <issue-id>:
   - Isolation: PASSED (single concern)
   - Rebased: Yes, on upstream default branch
 
-+------------------------------------------------------------------+
-| This is the actual PR on upstream (in draft state).               |
-| Review on GitHub, then:                                           |
-|                                                                   |
-|   /tackle --gate approve    Mark PR ready for review              |
-|   /tackle --gate reject     Return to implementation              |
-|                                                                   |
-| Or respond naturally: "submit", "looks good", "wait", etc.        |
-+------------------------------------------------------------------+
+┌────────────────────────────────────────────────────────────────────┐
+│ This is the actual PR on upstream (in draft state).                │
+│ Review on GitHub, then:                                            │
+│                                                                    │
+│   /tackle --gate approve    Mark PR ready for review               │
+│   /tackle --gate reject     Return to implementation               │
+│                                                                    │
+│ Or respond naturally: "submit", "looks good", "wait", etc.         │
+└────────────────────────────────────────────────────────────────────┘
 
 Note: PR exists on upstream as DRAFT. Approval marks it ready for maintainer review.
 ```
