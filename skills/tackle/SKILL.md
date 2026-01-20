@@ -211,10 +211,6 @@ bd close <gate-bootstrap-step-id> --continue
 ### Gate 1 Presentation Format
 
 ```
-┌────────────────────────────────────────────────────────────────────┐
-│                    GATE: Plan Review                               │
-└────────────────────────────────────────────────────────────────────┘
-
 Plan for <issue-id>: <issue-title>
 
 ## Scope
