@@ -16,11 +16,8 @@ user-invocable: true
 ```
 /tackle <issue>                 Start working on issue
 /tackle --status                Show current state
-/tackle --gate approve          Approve current gate
-/tackle --gate reject           Return to previous phase
 /tackle --abort                 Abandon tackle, clean up
 /tackle --refresh               Force refresh upstream research
-/tackle --help                  Show all options
 
 Upstream management:
 /tackle add-upstream <org/repo>     Add upstream to track
@@ -98,14 +95,11 @@ First, parse what the user wants:
 |-------|--------|
 | `/tackle <issue>` | Start or resume tackle for issue |
 | `/tackle --status` | Show current tackle state via `bd --no-daemon mol current` |
-| `/tackle --gate approve` | Approve current gate, proceed |
-| `/tackle --gate reject` | Reject, return to previous phase |
 | `/tackle --abort` | Abandon tackle, clean up molecule and branch |
 | `/tackle --refresh` | Force refresh upstream research |
 | `/tackle add-upstream <org/repo>` | Add upstream to track |
 | `/tackle list-upstreams` | List tracked upstreams |
 | `/tackle remove-upstream <org/repo>` | Remove tracked upstream |
-| `/tackle --help` | Show help |
 
 ### Starting New Tackle
 
@@ -156,14 +150,12 @@ Based on current step (from `bd --no-daemon mol current`), load the appropriate 
 
 ### Approval Detection
 
-Accept these as **approval**:
-- `/tackle --gate approve`
+Accept natural language **approval**:
 - "approve", "approved", "proceed", "continue"
 - "yes", "lgtm", "looks good", "go ahead"
 - "submit", "ship it" (at gate-submit only)
 
-Accept these as **rejection**:
-- `/tackle --gate reject`
+Accept natural language **rejection**:
 - "reject", "no", "stop"
 - "wait", "revise", "hold", "change"
 
@@ -228,13 +220,7 @@ bd close <gate-bootstrap-step-id> --continue
 ║                                                                    ║
 ║  DO NOT PROCEED until user explicitly approves.                    ║
 ║                                                                    ║
-║  Present the plan, then STOP and WAIT.                             ║
-║                                                                    ║
-║  Approval required:                                                ║
-║    /tackle --gate approve   OR   "approve", "yes", "lgtm"          ║
-║                                                                    ║
-║  To reject and revise:                                             ║
-║    /tackle --gate reject    OR   "reject", "no", "revise"          ║
+║  Present the plan, then STOP and WAIT for user response.           ║
 ╚════════════════════════════════════════════════════════════════════╝
 ```
 
@@ -259,12 +245,7 @@ Plan for <issue-id>: <issue-title>
   - Hot areas: <none | list with reasons>
 
 ┌────────────────────────────────────────────────────────────────────┐
-│ What would you like to do?                                         │
-│                                                                    │
-│   /tackle --gate approve    Continue to implementation             │
-│   /tackle --gate reject     Revise the plan                        │
-│                                                                    │
-│ Or respond naturally: "approve", "looks good", "revise", etc.      │
+│ Approve to continue, or request changes.                           │
 └────────────────────────────────────────────────────────────────────┘
 ```
 
@@ -357,16 +338,8 @@ Draft PR for <issue-id>:
   - Rebased: Yes, on upstream default branch
 
 ┌────────────────────────────────────────────────────────────────────┐
-│ This is the actual PR on upstream (in draft state).                │
-│ Review on GitHub, then:                                            │
-│                                                                    │
-│   /tackle --gate approve    Mark PR ready for review               │
-│   /tackle --gate reject     Return to implementation               │
-│                                                                    │
-│ Or respond naturally: "submit", "looks good", "wait", etc.         │
+│ PR is in draft state. Approve to mark ready for maintainer review. │
 └────────────────────────────────────────────────────────────────────┘
-
-Note: PR exists on upstream as DRAFT. Approval marks it ready for maintainer review.
 ```
 
 ### On Approve
@@ -411,13 +384,7 @@ You're at the <gate-name> gate.
 This is a mandatory approval checkpoint. The skill will not proceed
 until you explicitly approve or reject.
 
-Commands:
-  /tackle --gate approve    Approve and continue
-  /tackle --gate reject     Go back and revise
-  /tackle --status          Show current state
-  /tackle --help            Show all options
-
-You can also respond naturally:
+Respond naturally:
   "yes", "approve", "looks good" -> approve
   "no", "wait", "revise" -> reject
 ```

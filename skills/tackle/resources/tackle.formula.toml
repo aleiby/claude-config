@@ -92,10 +92,7 @@ needs = ["plan"]
 description = """
 **MANDATORY STOP**
 
-Present plan to user. Wait for explicit approval:
-  /tackle --gate approve
-  /tackle --gate reject
-
+Present plan to user. Wait for explicit approval.
 DO NOT PROCEED WITHOUT APPROVAL.
 See SKILL.md gate-plan section.
 """
@@ -153,10 +150,7 @@ Show full PR preview:
 - Title, body, files changed
 - Validation results
 
-Wait for explicit approval:
-  /tackle --gate approve
-  /tackle --gate reject
-
+Wait for explicit approval.
 DO NOT MARK PR READY WITHOUT APPROVAL.
 See SKILL.md gate-submit section.
 """

@@ -26,6 +26,7 @@
       "Bash(export BEADS_NO_DAEMON=1 *)"
     ]
   },
+  "model": "opus",
   "hooks": {
     "PreCompact": [
       {
@@ -50,5 +51,7 @@
       }
     ]
   },
-  "model": "opus"
+  "enabledPlugins": {
+    "pr-kit@agentops-marketplace": true
+  }
 }
