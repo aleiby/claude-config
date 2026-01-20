@@ -90,7 +90,7 @@ id = "gate-plan"
 title = "GATE: Plan approval"
 needs = ["plan"]
 description = """
-**MANDATORY STOP**
+🛑 **MANDATORY STOP**
 
 Present plan to user. Wait for explicit approval.
 DO NOT PROCEED WITHOUT APPROVAL.
@@ -138,7 +138,7 @@ id = "gate-submit"
 title = "GATE: Pre-submit approval"
 needs = ["validate"]
 description = """
-**MANDATORY STOP**
+🛑 **MANDATORY STOP**
 
 On entering this gate:
 1. Check if draft PR already exists (idempotent)

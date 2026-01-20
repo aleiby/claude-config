@@ -196,11 +196,11 @@ bd close <gate-bootstrap-step-id> --continue
 
 ## Gate 1: `gate-plan` (Plan Review)
 
-**MANDATORY STOP** - Do not proceed without explicit approval.
+🛑 **MANDATORY STOP** - Do not proceed without explicit approval.
 
 ```
 ╔════════════════════════════════════════════════════════════════════╗
-║  MANDATORY STOP - GATE: Plan Review                                ║
+║  🛑 MANDATORY STOP - GATE: Plan Review                                ║
 ║                                                                    ║
 ║  DO NOT PROCEED until user explicitly approves.                    ║
 ║                                                                    ║
@@ -249,7 +249,7 @@ Stay in plan phase, revise based on feedback.
 
 ## Gate 2: `gate-submit` (Pre-Submit Review)
 
-**MANDATORY STOP** - Do not submit PR without explicit approval.
+🛑 **MANDATORY STOP** - Do not submit PR without explicit approval.
 
 ### Idempotent Entry (Critical for Session Recovery)
 
@@ -288,7 +288,7 @@ This ensures the session can end anywhere and resume cleanly. GitHub is the sour
 
 ```
 ╔════════════════════════════════════════════════════════════════════╗
-║  MANDATORY STOP - GATE: Pre-Submit Review                          ║
+║  🛑 MANDATORY STOP - GATE: Pre-Submit Review                          ║
 ║                                                                    ║
 ║  DO NOT SUBMIT PR until user explicitly approves.                  ║
 ║                                                                    ║
