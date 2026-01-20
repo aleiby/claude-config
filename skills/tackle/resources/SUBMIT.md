@@ -81,12 +81,14 @@ Examples:
 
 Use template if available, otherwise:
 
+**IMPORTANT: Never reference local beads issue IDs (gt-xxx, hq-xxx) in upstream PRs.**
+Local beads are internal tracking - they mean nothing to upstream maintainers.
+Only reference GitHub issue numbers if they exist on the upstream repo.
+
 ```markdown
 ## Summary
 
 <Brief description of what this PR does>
-
-Fixes <issue-id>
 
 ## Changes
 
