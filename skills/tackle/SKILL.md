@@ -14,7 +14,7 @@ user-invocable: true
 ## Quick Reference
 
 ```
-/tackle <issue-id>              Start working on issue
+/tackle <issue>                 Start working on issue
 /tackle --status                Show current state
 /tackle --gate approve          Approve current gate
 /tackle --gate reject           Return to previous phase
@@ -96,7 +96,7 @@ First, parse what the user wants:
 
 | Input | Action |
 |-------|--------|
-| `/tackle <id>` | Start or resume tackle for issue |
+| `/tackle <issue>` | Start or resume tackle for issue |
 | `/tackle --status` | Show current tackle state via `bd --no-daemon mol current` |
 | `/tackle --gate approve` | Approve current gate, proceed |
 | `/tackle --gate reject` | Reject, return to previous phase |
@@ -109,7 +109,7 @@ First, parse what the user wants:
 
 ### Starting New Tackle
 
-When starting `/tackle <issue-id>`:
+When starting `/tackle <issue>`:
 
 1. **First-time setup**: Install formula if not present (see RESEARCH.md)
 2. **Check for attached molecule**: `gt mol status` shows attached molecule if present
@@ -172,7 +172,7 @@ Accept these as **rejection**:
 1. **NEVER** proceed past a gate without explicit user approval
 2. **NEVER** auto-approve based on heuristics or timeouts
 3. **NEVER** submit a PR without gate-submit approval
-4. **ALL agents** (mayor, crew, polecats) stop at gates - no exceptions
+4. **ALL agents** stop at gates - no exceptions
 5. If no human in loop, **WAIT INDEFINITELY** at the gate
 
 ---
@@ -426,12 +426,7 @@ You can also respond naturally:
 
 **Critical for autonomous agents:**
 
-Gates apply to ALL agents equally:
-- Mayor: stops at gates
-- Crew: stops at gates
-- Polecats: stops at gates
-
-No agent can bypass gates. No role-specific exceptions.
+Gates apply to ALL agents equally. No agent can bypass gates. No role-specific exceptions.
 
 If an agent reaches a gate without a human in the loop:
 1. Present gate
