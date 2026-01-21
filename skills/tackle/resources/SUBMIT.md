@@ -122,6 +122,21 @@ pr:
 
 After PR submission:
 
+### What Gets Closed When?
+
+**Molecule vs Issue - they're separate:**
+
+| Thing | When to Close | Why |
+|-------|---------------|-----|
+| **Molecule** (gt-mol-xxx) | After retro step | Workflow complete, PR submitted |
+| **Issue/task bead** (hq-xxx) | After PR merges | Work not done until fix is in upstream |
+
+- Closing the molecule does NOT close the issue
+- Issue stays `in_review` until PR is merged upstream
+- Once merged, close the issue manually: `bd close <issue-id>`
+
+This separation allows tracking issues through the full lifecycle, even if PRs need revisions or take time to merge.
+
 ### 1. Update Local Issue
 
 ```bash
