@@ -732,6 +732,8 @@ bd close <step-id> --continue
 
 This marks the step complete and advances to the next step. Use `bd ready` to find it.
 
+**Continue until reflect is complete and root molecule is closed.** Tackle is not done until then.
+
 ### Aborting (`/tackle --abort`)
 
 To abandon a tackle mid-workflow:
