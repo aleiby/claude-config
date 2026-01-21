@@ -6,8 +6,14 @@ A Claude Code skill for contributing to open source projects with mandatory huma
 
 ```
 /tackle <issue>       # Start working on an issue
-/tackle --status      # Check current state
+/tackle --help        # Show all commands
 ```
+
+## Dependencies
+
+- [gh](https://cli.github.com/) - GitHub CLI for API access
+- [jq](https://jqlang.github.io/jq/) - JSON parsing
+- [yq](https://github.com/mikefarah/yq) - YAML parsing (optional, has fallback)
 
 ## What It Does
 
