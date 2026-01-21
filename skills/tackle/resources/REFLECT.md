@@ -6,6 +6,40 @@ Reflect on what went wrong with the tackle process and improve the skill.
 
 This step runs **immediately after PR submission** (not after merge). Capture friction and errors while fresh.
 
+**CRITICAL**: The retro step is how tackle learns and improves. Skipping evaluation or writing "Clean run" without review loses valuable learning data. Take this step seriously.
+
+---
+
+## Retro Checklist (EVALUATE BEFORE CLOSING)
+
+**Do not write "Clean run" until you've reviewed each category:**
+
+### 1. Skill/Formula Issues?
+- Were any instructions wrong or unclear?
+- Did any commands fail due to wrong flags?
+- Were steps missing or in wrong order?
+- Did gates work correctly?
+
+### 2. Research Issues?
+- Did we miss existing work (closed issues, open PRs)?
+- Was upstream research stale or incomplete?
+- Did we duplicate someone else's effort?
+
+### 3. Agent Behavior Issues?
+- Did I jump to conclusions without investigating?
+- Did I propose a fix that turned out to be wrong?
+- Did I forget any steps?
+- Did I need user correction?
+
+### 4. Molecule Cleanup?
+- Are ALL steps closed (not just retro)?
+- Is the ROOT MOLECULE closed?
+- Did I record issues in close_reason for pattern detection?
+
+**Only write "Clean run - no issues" if you've reviewed ALL categories and found nothing.**
+
+---
+
 ## What to Log
 
 **IMPORTANT**: Only log issues that tackle could help prevent in future runs.
@@ -129,6 +163,26 @@ bd close <retro-step-id> --reason "Clean run - no issues"
 ```bash
 bd close <retro-step-id> --reason "Logged: <brief summary of issues>"
 ```
+
+### IMPORTANT: Close the Root Molecule
+
+After closing retro, the root molecule should auto-close. Verify:
+
+```bash
+bd --no-daemon mol current
+# Should show no active molecule, or error
+
+gt mol status
+# Should show no attached molecule
+```
+
+If the root molecule is still open, close it manually:
+
+```bash
+bd close <molecule-id> --reason "Tackle complete - PR submitted"
+```
+
+**Why this matters**: Open molecules pollute future queries. Pattern detection depends on closed molecules with proper close_reason fields.
 
 ## Example
 
