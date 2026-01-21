@@ -524,7 +524,6 @@ if [ -n "$PR_JSON" ]; then
   fi
 else
   # No PR exists - create draft
-  # Note: If pre-push hooks block PR branches, use: git push -u origin $BRANCH --no-verify
   git push -u origin $BRANCH
   gh pr create --repo $ORG_REPO --draft \
     --head "$FORK_OWNER:$BRANCH" \
@@ -532,8 +531,6 @@ else
   PR_URL=$(gh pr view --repo $ORG_REPO --json url --jq '.url')
 fi
 ```
-
-**Note on pre-push hooks**: Some repositories have pre-push hooks that block pushing PR branches (e.g., branch name validation). If push fails due to hooks, use `git push --no-verify` to bypass. This is safe for upstream contributions since the upstream CI will validate the code.
 
 This ensures the session can end anywhere and resume cleanly. GitHub is the source of truth.
 
