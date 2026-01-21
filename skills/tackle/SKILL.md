@@ -696,7 +696,13 @@ This ensures no autonomous PR submission.
 
 The `reflect` step captures issues with the tackle process itself (not task-specific problems).
 
-**REQUIRED**: Load REFLECT.md and follow its checklist. Do NOT skip this step or close it without assessment.
+**Load REFLECT.md for full instructions.** At minimum, answer these before closing:
+
+1. **Skill issues?** Wrong commands, unclear instructions, missing steps?
+2. **Research issues?** Missed existing work, stale data, duplicated effort?
+3. **Agent issues?** Needed user correction? Forgot steps? Wrong assumptions?
+
+If any issues found: load REFLECT.md for recording format and pattern detection.
 
 After completing the reflect assessment:
 
