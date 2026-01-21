@@ -345,6 +345,17 @@ See Resource Loading table above for which resource file to load.
 | `record` | Update local issue with PR link |
 | `reflect` | Reflect on skill issues (see Reflect section) |
 
+### Completing Steps
+
+After completing work for a step:
+```bash
+bd close <step-id> --continue
+```
+
+This marks the step complete and advances to the next step. Use `bd ready` to find it.
+
+**Continue until reflect is complete and root molecule is closed.** Tackle is not done until then.
+
 ---
 
 ## Project Research Step (Pre-Molecule)
@@ -692,7 +703,7 @@ This ensures no autonomous PR submission.
 
 ---
 
-## Reflect (Quick Reference)
+## Reflect
 
 **⚠️ You are NOT done until this step is complete.** PR submission is not the end of the workflow.
 
@@ -722,17 +733,6 @@ gt mol status                # Should show "Nothing on hook"
 ```
 
 **Why close the root molecule?** Open molecules pollute future queries. Pattern detection depends on closed molecules with proper close_reason fields.
-
-### Completing Steps
-
-After completing work for a step:
-```bash
-bd close <step-id> --continue
-```
-
-This marks the step complete and advances to the next step. Use `bd ready` to find it.
-
-**Continue until reflect is complete and root molecule is closed.** Tackle is not done until then.
 
 ### Aborting (`/tackle --abort`)
 
