@@ -692,28 +692,16 @@ This ensures no autonomous PR submission.
 
 ---
 
-## Reflect (Quick Reference)
+## Reflect
 
-The `reflect` step captures issues with the tackle process itself (not task-specific problems).
+**STOP. Load `resources/REFLECT.md` now.**
 
-**REQUIRED**: Load REFLECT.md and follow its checklist. Do NOT skip this step or close it without assessment.
+The reflect step is how tackle learns and improves. REFLECT.md contains:
+- The evaluation checklist (MUST review before closing)
+- How to record issues for pattern detection
+- Commands to close the reflect step AND root molecule
 
-After completing the reflect assessment:
-
-```bash
-# 1. Close the reflect step
-bd close <reflect-step-id> --reason "<summary of findings>"
-
-# 2. CRITICAL: Close the ROOT MOLECULE (not just the steps!)
-MOL_ID=$(bd --no-daemon mol current --json | jq -r '.molecule.id')
-bd close "$MOL_ID" --reason "Tackle complete - PR submitted"
-
-# 3. Verify cleanup
-bd --no-daemon mol current   # Should show "No molecules in progress"
-gt mol status                # Should show "Nothing on hook"
-```
-
-**Why close the root molecule?** Open molecules pollute future queries. Pattern detection depends on closed molecules with proper close_reason fields.
+Do NOT close this step without loading and following REFLECT.md. The closing commands are intentionally only in that file.
 
 ### Completing Steps
 
