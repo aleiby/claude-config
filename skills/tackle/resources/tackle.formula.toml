@@ -5,7 +5,7 @@ Tracks work from initial research through PR submission. Each step is a
 checkpoint that survives session restarts. Gates require explicit approval.
 """
 formula = "tackle"
-version = 1
+version = 2
 
 [vars.issue]
 description = "The issue ID being tackled"
