@@ -214,22 +214,22 @@ User can add more related repos to track, or continue.
 
 **First, check for pending PR outcomes:**
 
-Look for any local issues with `in_review` status and check their PR outcomes:
+Look for any local issues with `pr-submitted` label and check their PR outcomes:
 
 ```bash
 # Find issues awaiting PR outcomes
-IN_REVIEW=$(bd list --status=in_review --json | jq -r '.[] | {id, title, notes}')
+PENDING_PRS=$(bd list --label=pr-submitted --json | jq -r '.[] | {id, title, notes}')
 ```
 
-For each `in_review` issue, extract the PR URL from notes and check its status:
+For each issue with `pr-submitted` label, extract the PR URL from notes and check its status:
 
 ```bash
 PR_STATE=$(gh pr view <pr-number> --repo $ORG_REPO --json state --jq '.state')
 ```
 
-- If `MERGED`: `bd close <issue-id> --reason "PR merged"`
-- If `CLOSED`: `bd update <issue-id> --status=open --notes="PR rejected/closed"` to retry, or `bd close <issue-id> --reason "PR rejected"` if not worth retrying
-- If `OPEN`: leave as `in_review`
+- If `MERGED`: `bd close <issue-id> --reason "PR merged"` (label auto-removed on close)
+- If `CLOSED`: `bd update <issue-id> --remove-label pr-submitted --notes="PR rejected/closed"` to retry, or `bd close <issue-id> --reason "PR rejected"` if not worth retrying
+- If `OPEN`: leave as-is (still awaiting review)
 
 **Then, check if the current issue is already addressed.**
 

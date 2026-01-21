@@ -132,7 +132,7 @@ After PR submission:
 | **Issue/task bead** (hq-xxx) | After PR outcome | Work not done until fix is in upstream |
 
 - Closing the molecule does NOT close the issue
-- Issue stays `in_review` until PR outcome is known
+- Issue gets `pr-submitted` label until PR outcome is known
 - PR outcomes are checked during Issue Research (step 6 in Starting Tackle) on future tackle invocations
 
 This separation allows tracking issues through the full lifecycle, even if PRs need revisions or take time to merge.
@@ -140,7 +140,7 @@ This separation allows tracking issues through the full lifecycle, even if PRs n
 ### 1. Update Local Issue
 
 ```bash
-bd update <issue-id> --status=in_review --notes="PR submitted: $PR_URL"
+bd update <issue-id> --add-label pr-submitted --notes="PR submitted: $PR_URL"
 ```
 
 ### 2. Record for Learning
