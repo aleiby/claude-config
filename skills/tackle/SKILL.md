@@ -694,6 +694,8 @@ This ensures no autonomous PR submission.
 
 ## Reflect (Quick Reference)
 
+**⚠️ You are NOT done until this step is complete.** PR submission is not the end of the workflow.
+
 The `reflect` step captures issues with the tackle process itself (not task-specific problems).
 
 **Load REFLECT.md for full instructions.** At minimum, answer these before closing:

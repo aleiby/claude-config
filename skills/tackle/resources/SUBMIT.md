@@ -161,15 +161,11 @@ Issue:    hq-1234 - Fix doctor indentation
 PR:       https://github.com/steveyegge/beads/pull/123
 Status:   Awaiting review
 
-Next steps:
-- Monitor PR for review comments
-- Address feedback if requested
-- Once merged, close local issue with: bd close hq-1234
-
-To check PR status:
-  gh pr status --repo steveyegge/beads
+To check PR status later:
   gh pr view 123 --repo steveyegge/beads
 ```
+
+**⚠️ WORKFLOW NOT COMPLETE** - You must still complete the reflect step before you are done.
 
 ### 4. Advance to Reflect
 
