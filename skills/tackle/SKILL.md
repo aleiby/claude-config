@@ -42,7 +42,7 @@ Check current step with `bd --no-daemon mol current`, then use this lookup:
 ## State Management via Beads Molecules
 
 State persists via beads molecules. The tackle formula is shipped with this skill
-and installed to the rig's `.beads/formulas/` on first use.
+and installed to the town's `.beads/formulas/` directory.
 
 **Molecule workflow:**
 ```bash
@@ -724,8 +724,6 @@ When you loaded this skill, note the directory path. Resources are at:
 - `<skill-dir>/resources/tackle.formula.toml`
 
 Only load the resource needed for the current phase to minimize context.
-
-On first use, RESEARCH.md copies the formula to the rig's `.beads/formulas/`.
 
 ## Session Handoff
 
