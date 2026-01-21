@@ -328,11 +328,6 @@ gt mol attach "$MOL_ID"
 # If "not pinned" error: see molecule workflow section above
 ```
 
-**Claim issue (optional):**
-```bash
-gh issue comment $UPSTREAM_ISSUE --repo $ORG_REPO --body "I'd like to work on this. I'll submit a PR soon."
-```
-
 ### Phase Execution
 
 Based on current step (from `bd --no-daemon mol current`), take the appropriate action.
@@ -464,6 +459,11 @@ Plan for <issue-id>: <issue-title>
   - Existing coverage sufficient: <brief justification>
   - N/A: <reason, e.g., "documentation-only change">
 
+## Claim
+<one of:>
+  - Will claim: issue #<n> is open, unclaimed, on upstream
+  - Skip: <reason, e.g., "internal-only issue", "already assigned to me", "I filed this issue">
+
 Approve to continue, or request changes.
 ```
 
@@ -471,6 +471,13 @@ Approve to continue, or request changes.
 
 ```bash
 bd close <gate-plan-step-id> --continue
+```
+
+**If claiming** (plan indicated "Will claim"):
+```bash
+# Extract upstream issue number from the local issue's external_ref or labels
+UPSTREAM_ISSUE=$(bd show <issue-id> --json | jq -r '.[0].external_ref // empty' | grep -oE 'issue:[0-9]+' | sed 's/issue://')
+gh issue comment $UPSTREAM_ISSUE --repo $ORG_REPO --body "I'd like to work on this. I'll submit a PR soon."
 ```
 
 Proceed to branch creation.
