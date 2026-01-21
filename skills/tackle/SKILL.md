@@ -460,7 +460,7 @@ Plan for <issue-id>: <issue-title>
 
 ## Testing
 <one of:>
-  - Recommend: <specific test to add or modify>
+  - Recommend: <specific tests to add or modify>
   - Existing coverage sufficient: <brief justification>
   - N/A: <reason, e.g., "documentation-only change">
 
