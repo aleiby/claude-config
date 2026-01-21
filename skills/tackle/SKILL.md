@@ -475,8 +475,14 @@ bd close <gate-plan-step-id> --continue
 
 **If claiming** (plan indicated "Will claim"):
 ```bash
+# Get ORG_REPO from molecule if not already set
+if [ -z "$ORG_REPO" ]; then
+  ORG_REPO=$(bd show <molecule-id> --json | jq -r '.[0].vars.upstream // empty')
+fi
+
 # Extract upstream issue number from the local issue's external_ref or labels
 UPSTREAM_ISSUE=$(bd show <issue-id> --json | jq -r '.[0].external_ref // empty' | grep -oE 'issue:[0-9]+' | sed 's/issue://')
+
 gh issue comment $UPSTREAM_ISSUE --repo $ORG_REPO --body "I'd like to work on this. I'll submit a PR soon."
 ```
 
