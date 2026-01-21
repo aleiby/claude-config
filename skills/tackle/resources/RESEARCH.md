@@ -144,7 +144,7 @@ README=$(gh api repos/$ORG_REPO/contents/README.md --jq '.content' 2>/dev/null |
 # Parse for github.com links or org/repo patterns
 ```
 
-Present any related upstreams found for user review (see project-report section below).
+Present any related upstreams found for user review (see Section 5: Project Report below).
 
 ---
 
@@ -158,15 +158,15 @@ Research cache: hq-abc123 (refreshed 2h ago | refreshed now)
 Guidelines: CONTRIBUTING.md found
 ```
 
-Then continue to project-report (step 5) if new data was found, otherwise skip to issue-research (step 6).
+Then continue to Project Report (Section 5) if new data was found, otherwise skip to Issue Research (step 6 in Starting Tackle).
 
 ---
 
-## Section 5: `project-report` (Research Checkpoint)
+## Section 5: Project Report
 
 **CHECKPOINT** - Only present if new data was found.
 
-When cache is fresh or no new data was found, this step is auto-closed. Only present when there's new research to review.
+When cache is fresh or no new data was found, this step is skipped. Only present when there's new research to review.
 
 ```
 ┌────────────────────────────────────────────────────────────────────┐
@@ -191,7 +191,7 @@ Track these for additional context?
 
 ### On Response
 
-If user wants to add related upstreams, fetch research for them first. Then continue to issue-research (step 6 in Starting Tackle).
+If user wants to add related upstreams, fetch research for them first. Then continue to Issue Research (step 6 in Starting Tackle).
 
 ---
 

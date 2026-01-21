@@ -2,6 +2,10 @@
 
 Mark the draft PR as ready for review after gate-submit approval.
 
+> **IMPORTANT: Never reference local beads issue IDs (gt-xxx, hq-xxx) in upstream PRs.**
+> Local beads are internal tracking - they mean nothing to upstream maintainers.
+> Only reference GitHub issue numbers if they exist on the upstream repo.
+
 ## Pre-Submit Checklist
 
 Before this phase, verify gate-submit was approved (check that it's closed).
@@ -20,33 +24,33 @@ PR info should be available from the gate-submit step. If resuming:
 ```bash
 BRANCH=$(git branch --show-current)
 FORK_OWNER=$(gh repo view --json owner --jq '.owner.login')
-PR_NUMBER=$(gh pr list --repo <upstream> --head "$FORK_OWNER:$BRANCH" --json number --jq '.[0].number')
+PR_NUMBER=$(gh pr list --repo $ORG_REPO --head "$FORK_OWNER:$BRANCH" --json number --jq '.[0].number')
 ```
 
 ### 2. Mark Draft as Ready
 
 ```bash
-gh pr ready $PR_NUMBER --repo <upstream-org>/<upstream-repo>
+gh pr ready $PR_NUMBER --repo $ORG_REPO
 ```
 
 ### 3. Verify PR is Ready
 
 ```bash
-IS_DRAFT=$(gh pr view $PR_NUMBER --repo <upstream> --json isDraft --jq '.isDraft')
+IS_DRAFT=$(gh pr view $PR_NUMBER --repo $ORG_REPO --json isDraft --jq '.isDraft')
 if [ "$IS_DRAFT" = "true" ]; then
   echo "ERROR: PR #$PR_NUMBER still in draft - gh pr ready may have failed"
   # Retry or investigate
   exit 1
 fi
 
-STATE=$(gh pr view $PR_NUMBER --repo <upstream> --json state --jq '.state')
+STATE=$(gh pr view $PR_NUMBER --repo $ORG_REPO --json state --jq '.state')
 echo "PR #$PR_NUMBER is $STATE and ready for review"
 ```
 
 ### 4. Capture Final PR URL
 
 ```bash
-PR_URL=$(gh pr view $PR_NUMBER --repo <upstream-org>/<upstream-repo> --json url --jq '.url')
+PR_URL=$(gh pr view $PR_NUMBER --repo $ORG_REPO --json url --jq '.url')
 echo "PR submitted: $PR_URL"
 ```
 
@@ -56,10 +60,10 @@ If you need to update the PR before marking ready:
 
 ```bash
 # Update title
-gh pr edit $PR_NUMBER --repo <upstream-org>/<upstream-repo> --title "<new-title>"
+gh pr edit $PR_NUMBER --repo $ORG_REPO --title "<new-title>"
 
 # Update body
-gh pr edit $PR_NUMBER --repo <upstream-org>/<upstream-repo> --body "<new-body>"
+gh pr edit $PR_NUMBER --repo $ORG_REPO --body "<new-body>"
 ```
 
 ### Title Format
@@ -80,10 +84,6 @@ Examples:
 ### Body Format
 
 Use template if available, otherwise:
-
-**IMPORTANT: Never reference local beads issue IDs (gt-xxx, hq-xxx) in upstream PRs.**
-Local beads are internal tracking - they mean nothing to upstream maintainers.
-Only reference GitHub issue numbers if they exist on the upstream repo.
 
 ```markdown
 ## Summary
@@ -133,7 +133,7 @@ After PR submission:
 
 - Closing the molecule does NOT close the issue
 - Issue stays `in_review` until PR outcome is known
-- PR outcomes are checked during issue-research (SKILL.md step 6) on future tackle invocations
+- PR outcomes are checked during Issue Research (step 6 in Starting Tackle) on future tackle invocations
 
 This separation allows tracking issues through the full lifecycle, even if PRs need revisions or take time to merge.
 

@@ -79,8 +79,8 @@ bd close <step-id> --continue   # Complete step and auto-advance
 ```
 Pre-molecule (research):
   - Detect Upstream
-  - [Project-Research → Project-Report] (only if cache stale)
-  - Issue-Research (checks all tracked repos)
+  - [Project Research → Project Report] (only if cache stale)
+  - Issue Research (checks all tracked repos)
       → Existing Work Decision → (skip | wait | proceed)
   - Create Molecule
 
@@ -127,8 +127,8 @@ If no molecule attached, continue with fresh tackle setup below.
 The user's input may be an issue ID, partial match, or description.
 
 ```bash
-# Try direct lookup
-bd show <input> 2>/dev/null
+# Try direct lookup (use || true to avoid exit on not found)
+bd show <input> || true
 ```
 
 If not found, search for matches:
@@ -153,7 +153,21 @@ if [ -z "$UPSTREAM_URL" ]; then
   UPSTREAM_URL=$(git remote -v | grep -E '^origin\s' | head -1 | awk '{print $2}')
 fi
 
+# Error if no remote found
+if [ -z "$UPSTREAM_URL" ]; then
+  echo "ERROR: No git remote found. Expected 'upstream', 'fork-source', or 'origin'."
+  echo "Add a remote with: git remote add origin <url>"
+  exit 1
+fi
+
 ORG_REPO=$(echo "$UPSTREAM_URL" | sed -E 's#.*github.com[:/]([^/]+/[^/]+)(\.git)?$#\1#')
+
+# Verify we got a valid org/repo
+if [ -z "$ORG_REPO" ] || [ "$ORG_REPO" = "$UPSTREAM_URL" ]; then
+  echo "ERROR: Could not parse org/repo from URL: $UPSTREAM_URL"
+  echo "Expected GitHub URL format (https or ssh)"
+  exit 1
+fi
 
 # Detect default branch
 DEFAULT_BRANCH=$(gh api repos/$ORG_REPO --jq '.default_branch')
@@ -161,11 +175,24 @@ UPSTREAM_REF="$UPSTREAM_REMOTE/$DEFAULT_BRANCH"
 ```
 
 Variables set:
-- `UPSTREAM_REMOTE` - the git remote name (upstream, fork-source, or origin)
-- `UPSTREAM_URL` - the remote URL
-- `ORG_REPO` - the org/repo format (e.g., "steveyegge/beads")
-- `DEFAULT_BRANCH` - the default branch name (e.g., "main")
-- `UPSTREAM_REF` - the full ref (e.g., "upstream/main")
+- `$UPSTREAM_REMOTE` - the git remote name (upstream, fork-source, or origin)
+- `$UPSTREAM_URL` - the remote URL
+- `$ORG_REPO` - the org/repo format (e.g., "steveyegge/beads")
+- `$DEFAULT_BRANCH` - the default branch name (e.g., "main")
+- `$UPSTREAM_REF` - the full ref (e.g., "upstream/main")
+
+**Placeholder aliases used in this skill:**
+- `<upstream>` = `$ORG_REPO`
+- `<upstream-org>/<upstream-repo>` = `$ORG_REPO`
+
+**Persistence:** These variables don't persist across sessions. Store `$ORG_REPO` in the molecule for recovery:
+```bash
+bd --no-daemon mol pour tackle --var issue=<issue-id> --var upstream="$ORG_REPO"
+```
+When resuming, re-run upstream detection or retrieve from molecule:
+```bash
+ORG_REPO=$(bd show <molecule-id> --json | jq -r '.[0].vars.upstream // empty')
+```
 
 #### 4. Project Research (cache check)
 
@@ -182,7 +209,7 @@ If project research found new data, present the checkpoint (see RESEARCH.md Sect
 
 User can add more related repos to track, or continue.
 
-#### 6. Issue-Specific Research
+#### 6. Issue Research
 
 **First, check for pending PR outcomes:**
 
@@ -196,7 +223,7 @@ IN_REVIEW=$(bd list --status=in_review --json | jq -r '.[] | {id, title, notes}'
 For each `in_review` issue, extract the PR URL from notes and check its status:
 
 ```bash
-PR_STATE=$(gh pr view <pr-number> --repo <upstream> --json state --jq '.state')
+PR_STATE=$(gh pr view <pr-number> --repo $ORG_REPO --json state --jq '.state')
 ```
 
 - If `MERGED`: `bd close <issue-id> --reason "PR merged"`
@@ -208,7 +235,7 @@ PR_STATE=$(gh pr view <pr-number> --repo <upstream> --json state --jq '.state')
 Check ALL tracked repos (main upstream + related repos from project research cache), not just the primary upstream.
 
 ```bash
-# Get tracked repos from cache
+# Get tracked repos from cache (requires yq: https://github.com/mikefarah/yq)
 TRACKED_REPOS=$(yq '.tackle.tracked_repos[]' .beads/config.yaml 2>/dev/null)
 # Falls back to just ORG_REPO if no cache
 [ -z "$TRACKED_REPOS" ] && TRACKED_REPOS="$ORG_REPO"
@@ -218,7 +245,8 @@ For each tracked repo, check:
 
 **Check if upstream issue is closed:**
 ```bash
-UPSTREAM_ISSUE=$(bd show <issue-id> --json | jq -r '.[0].external_ref // empty' | grep -oP 'issue:\K\d+')
+# Extract issue number from external_ref (portable regex, works on Linux and macOS)
+UPSTREAM_ISSUE=$(bd show <issue-id> --json | jq -r '.[0].external_ref // empty' | grep -oE 'issue:[0-9]+' | sed 's/issue://')
 if [ -n "$UPSTREAM_ISSUE" ]; then
   ISSUE_STATE=$(gh api repos/$REPO/issues/$UPSTREAM_ISSUE --jq '.state')
 fi
@@ -265,15 +293,15 @@ Accept natural language responses. If user chooses to skip/wait, do not create m
 #### 8. Create Molecule (only if proceeding)
 
 ```bash
-# Create molecule (requires --no-daemon)
-bd --no-daemon mol pour tackle --var issue=<issue-id>
-# Returns molecule ID like gt-mol-xxxxx
+# Create molecule and capture ID (requires --no-daemon)
+MOL_ID=$(bd --no-daemon mol pour tackle --var issue=<issue-id> --var upstream="$ORG_REPO" --json | jq -r '.id')
+echo "Created molecule: $MOL_ID"
 
 # Add formula label for pattern detection
-bd update <molecule-id> --add-label "formula:tackle"
+bd update "$MOL_ID" --add-label "formula:tackle"
 
 # Attach molecule
-gt mol attach <molecule-id>
+gt mol attach "$MOL_ID"
 # If "not pinned" error: see molecule workflow section above
 ```
 
@@ -309,7 +337,7 @@ This pre-molecule step checks if project-level research needs refreshing. **Only
 
 ```bash
 # ORG_REPO should be set from upstream detection earlier
-# Fast path: Check config for cached bead ID
+# Fast path: Check config for cached bead ID (requires yq: https://github.com/mikefarah/yq)
 CACHE_BEAD=$(yq ".tackle.cache_beads[\"$ORG_REPO\"]" .beads/config.yaml 2>/dev/null)
 
 # Fallback: Label search if not in config
@@ -319,9 +347,17 @@ fi
 
 # Check freshness (24h threshold)
 if [ -n "$CACHE_BEAD" ] && [ "$CACHE_BEAD" != "null" ]; then
-  LAST_CHECKED=$(bd show "$CACHE_BEAD" --json | jq -r '.[0].notes' | grep -oP 'last_checked: \K[^\n]+' || echo "")
+  # Portable regex (works on Linux and macOS)
+  LAST_CHECKED=$(bd show "$CACHE_BEAD" --json | jq -r '.[0].notes' | grep -oE 'last_checked: [^ ]+' | sed 's/last_checked: //' || echo "")
   if [ -n "$LAST_CHECKED" ]; then
-    LAST_TS=$(date -d "$LAST_CHECKED" +%s 2>/dev/null || echo 0)
+    # Cross-platform date parsing (Linux uses -d, macOS uses -j -f)
+    if date -d "$LAST_CHECKED" +%s >/dev/null 2>&1; then
+      LAST_TS=$(date -d "$LAST_CHECKED" +%s)
+    elif date -j -f "%Y-%m-%dT%H:%M:%S" "$LAST_CHECKED" +%s >/dev/null 2>&1; then
+      LAST_TS=$(date -j -f "%Y-%m-%dT%H:%M:%S" "${LAST_CHECKED%%+*}" +%s)
+    else
+      LAST_TS=0
+    fi
     NOW_TS=$(date +%s)
     AGE_HOURS=$(( (NOW_TS - LAST_TS) / 3600 ))
     if [ "$AGE_HOURS" -lt 24 ]; then
@@ -333,7 +369,7 @@ fi
 
 ### If Cache Fresh
 
-Skip loading RESEARCH.md. Update last_checked and continue to issue-research:
+Skip loading RESEARCH.md. Update last_checked and continue to Issue Research (step 6 in Starting Tackle):
 
 ```bash
 bd update "$CACHE_BEAD" --notes "last_checked: $(date -Iseconds)"
@@ -342,7 +378,7 @@ bd update "$CACHE_BEAD" --notes "last_checked: $(date -Iseconds)"
 
 ### If Cache Stale or Missing
 
-Load `resources/RESEARCH.md` for full refresh instructions. This discovers related repos (dependencies, etc.) and caches them. After refresh, present project-report checkpoint if new data was found, then continue to issue-research.
+Load `resources/RESEARCH.md` for full refresh instructions. This discovers related repos (dependencies, etc.) and caches them. After refresh, present the Project Report (Section 5) if new data was found, then continue to Issue Research (step 6 in Starting Tackle).
 
 ### Force Refresh
 
@@ -416,7 +452,12 @@ Proceed to branch creation.
 What would you like to change about the plan?
 ```
 
-Stay in plan phase, revise based on feedback.
+Stay in plan phase, revise based on feedback. After making changes:
+1. Update the plan in the `plan` step bead
+2. Re-present the gate-plan checkpoint with updated content
+3. Wait for approval again
+
+Do NOT close the gate step until explicitly approved.
 
 ---
 
@@ -431,7 +472,7 @@ When entering gate-submit, FIRST check if a draft PR already exists:
 ```bash
 BRANCH=$(git branch --show-current)
 FORK_OWNER=$(gh repo view --json owner --jq '.owner.login')
-PR_JSON=$(gh pr list --repo <upstream> --head "$FORK_OWNER:$BRANCH" --json number,isDraft,url --jq '.[0]')
+PR_JSON=$(gh pr list --repo $ORG_REPO --head "$FORK_OWNER:$BRANCH" --json number,isDraft,url --jq '.[0]')
 
 if [ -n "$PR_JSON" ]; then
   PR_NUMBER=$(echo "$PR_JSON" | jq -r '.number')
@@ -448,10 +489,10 @@ if [ -n "$PR_JSON" ]; then
 else
   # No PR exists - create draft
   git push -u origin $BRANCH
-  gh pr create --repo <upstream> --draft \
+  gh pr create --repo $ORG_REPO --draft \
     --head "$FORK_OWNER:$BRANCH" \
     --title "<title>" --body "<body>"
-  PR_URL=$(gh pr view --repo <upstream> --json url --jq '.url')
+  PR_URL=$(gh pr view --repo $ORG_REPO --json url --jq '.url')
 fi
 ```
 
@@ -517,7 +558,14 @@ Options:
   - Other changes
 ```
 
-Return to implement phase for revisions.
+Return to implement phase for revisions. After making changes:
+1. Force-push updated branch: `git push -f origin <branch>`
+2. Update draft PR if needed: `gh pr edit $PR_NUMBER --repo $ORG_REPO ...`
+3. Re-run validation (tests, linter, isolation)
+4. Re-present the gate-submit checkpoint
+5. Wait for approval again
+
+Do NOT close the gate step until explicitly approved.
 
 ---
 

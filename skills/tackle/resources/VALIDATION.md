@@ -112,11 +112,18 @@ Verify:
 - [ ] Issue reference included
 - [ ] No WIP or fixup commits
 
-Clean up if needed:
+Clean up if needed (use non-interactive commands since -i blocks agents):
 ```bash
-git rebase -i $UPSTREAM_REF
-# Squash fixup commits
-# Reword messages
+# Squash all commits into one with a new message
+git reset --soft $UPSTREAM_REF
+git commit -m "type(scope): description (#issue)"
+
+# Or use autosquash for fixup! commits (non-interactive)
+git rebase --autosquash $UPSTREAM_REF
+
+# Or squash last N commits
+git reset --soft HEAD~N
+git commit -m "type(scope): description (#issue)"
 ```
 
 ## Validation Output
