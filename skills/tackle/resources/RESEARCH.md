@@ -50,51 +50,6 @@ bd create --title="<title>" --type=<type> --priority=2
 
 Use the returned issue ID and continue.
 
-### Pre-Molecule Checks (Avoid Wasted Setup)
-
-Before creating a molecule, check if the work is already done or in progress:
-
-**1. Check if local issue links to upstream issue:**
-```bash
-UPSTREAM_ISSUE=$(bd show <issue-id> --json | jq -r '.[0].external_ref // empty' | grep -oP 'issue:\K\d+')
-```
-
-**2. If upstream issue exists, check its state:**
-```bash
-if [ -n "$UPSTREAM_ISSUE" ]; then
-  ISSUE_STATE=$(gh api repos/$ORG_REPO/issues/$UPSTREAM_ISSUE --jq '.state')
-  if [ "$ISSUE_STATE" = "closed" ]; then
-    echo "Upstream issue #$UPSTREAM_ISSUE is already closed"
-    # Offer to close local issue and skip tackle
-  fi
-fi
-```
-
-**3. Check for linked PRs on upstream issue:**
-```bash
-gh api repos/$ORG_REPO/issues/$UPSTREAM_ISSUE/timeline \
-  --jq '.[] | select(.event == "cross-referenced") | .source.issue | select(.pull_request) | {number, title, state}'
-```
-
-**4. Check own open PRs against upstream:**
-```bash
-gh pr list --repo $ORG_REPO --author @me --json number,title,headRefName \
-  --jq '.[] | select(.title | test("keyword"; "i") or .headRefName | test("keyword"; "i"))'
-```
-
-If any of these find existing work:
-```
-Found existing work for this issue:
-  - Upstream issue #123 is CLOSED (fixed 2h ago)
-  - PR #456 by @you already addresses this
-
-Options:
-  - Skip tackle (close local issue)
-  - Proceed anyway (create new approach)
-```
-
-This saves context and avoids wasted molecule setup.
-
 ### First-Time Setup: Install Formula
 
 On first use in a rig, install the tackle formula.
