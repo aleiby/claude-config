@@ -571,34 +571,59 @@ Approve to mark PR ready for maintainer review.
 **First, check CI status** before marking PR ready:
 
 ```bash
-# Check CI status on the draft PR
-CI_STATUS=$(gh pr checks $PR_NUMBER --repo $ORG_REPO --json state,name --jq '.')
+# Get CI status from PR
+CHECKS=$(gh pr view $PR_NUMBER --repo $ORG_REPO --json statusCheckRollup)
+PENDING=$(echo "$CHECKS" | jq '[.statusCheckRollup[] | select(.status == "COMPLETED" | not)] | length')
+FAILED=$(echo "$CHECKS" | jq '[.statusCheckRollup[] | select(.conclusion == "FAILURE")] | length')
 
-# Parse overall status
-PENDING=$(echo "$CI_STATUS" | jq '[.[] | select(.state == "PENDING")] | length')
-FAILED=$(echo "$CI_STATUS" | jq '[.[] | select(.state == "FAILURE")] | length')
+# If checks still running, wait and poll
+while [ "$PENDING" -gt 0 ]; do
+  echo "CI still running ($PENDING checks pending). Waiting 30s..."
+  sleep 30
+  CHECKS=$(gh pr view $PR_NUMBER --repo $ORG_REPO --json statusCheckRollup)
+  PENDING=$(echo "$CHECKS" | jq '[.statusCheckRollup[] | select(.status == "COMPLETED" | not)] | length')
+done
 
-if [ "$PENDING" -gt 0 ]; then
-  echo "CI still running ($PENDING checks pending). Waiting..."
-  gh pr checks $PR_NUMBER --repo $ORG_REPO --watch
-  # Re-check after completion
-  FAILED=$(gh pr checks $PR_NUMBER --repo $ORG_REPO --json state --jq '[.[] | select(.state == "FAILURE")] | length')
-fi
+# Re-check for failures after completion
+FAILED=$(echo "$CHECKS" | jq '[.statusCheckRollup[] | select(.conclusion == "FAILURE")] | length')
+```
 
+**If CI failed**, check if failures are pre-existing on main:
+
+```bash
 if [ "$FAILED" -gt 0 ]; then
-  echo "CI failed ($FAILED checks). Review failures before proceeding."
-  gh pr checks $PR_NUMBER --repo $ORG_REPO
+  # Get names of failed checks
+  FAILED_NAMES=$(echo "$CHECKS" | jq '[.statusCheckRollup[] | select(.conclusion == "FAILURE") | .name]')
+
+  # Get failures on main/default branch
+  MAIN_FAILURES=$(gh api repos/$ORG_REPO/commits/$DEFAULT_BRANCH/check-runs --jq '[.check_runs[] | select(.conclusion == "failure") | .name]')
+
+  # Check if all PR failures also fail on main (pre-existing)
+  PRE_EXISTING=$(jq -n --argjson pr "$FAILED_NAMES" --argjson main "$MAIN_FAILURES" '($pr - $main) | length == 0')
+
+  if [ "$PRE_EXISTING" = "true" ]; then
+    echo "CI failures are pre-existing on $DEFAULT_BRANCH (not caused by this PR)"
+  fi
 fi
 ```
 
-**If CI failed**, present options:
+Present CI status to user:
 ```
-CI checks failed. Options:
+CI Status:
+  - Passed: <n>
+  - Failed: <n> <if pre-existing: "(pre-existing on main)">
+  - Skipped: <n>
+
+<if failures are NOT pre-existing>
+Options:
   - Fix failures and re-push (returns to implement phase)
   - Submit anyway (maintainer may reject)
+
+<if all failures are pre-existing>
+All failures are pre-existing on main. Safe to proceed.
 ```
 
-**If CI passed** (or user chooses to submit anyway), store PR info and proceed:
+**If CI passed** (or failures are pre-existing, or user chooses to submit anyway), store PR info and proceed:
 
 ```bash
 GATE_BEAD=$(bd --no-daemon mol current --json | jq -r '.current_step.id')
