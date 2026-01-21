@@ -8,9 +8,9 @@ This resource handles **project-level research** - information about the upstrea
 
 ## Section 1: First-Time Setup
 
-### Install or Update Formula
+### Install Formula
 
-On first use in a rig, install the tackle formula. On subsequent uses, check for updates.
+Always sync the formula from the skill to ensure it's up to date.
 
 ```bash
 FORMULA_SRC="<skill-dir>/resources/tackle.formula.toml"
@@ -25,25 +25,13 @@ fi
 
 FORMULA_DST="$BEADS_DIR/formulas/tackle.formula.toml"
 
-# Get versions (current formula version is 2)
-SKILL_VERSION=$(grep '^version' "$FORMULA_SRC" | sed 's/[^0-9]//g')
-INSTALLED_VERSION=$(grep '^version' "$FORMULA_DST" 2>/dev/null | sed 's/[^0-9]//g' || echo "0")
+# Always copy to ensure formula is current
+mkdir -p "$BEADS_DIR/formulas"
+cp "$FORMULA_SRC" "$FORMULA_DST"
 
-if [ "$INSTALLED_VERSION" -lt "$SKILL_VERSION" ]; then
-  mkdir -p "$BEADS_DIR/formulas"
-  cp "$FORMULA_SRC" "$FORMULA_DST"
-
-  if [ "$INSTALLED_VERSION" = "0" ]; then
-    echo "Installed tackle formula v$SKILL_VERSION to $BEADS_DIR/formulas/"
-  else
-    echo "Updated tackle formula from v$INSTALLED_VERSION to v$SKILL_VERSION"
-    echo "NOTE: Any in-progress molecules using the old formula should be closed or burned."
-  fi
-
-  # Add to .gitignore if not already present
-  if ! grep -q "formulas/tackle.formula.toml" "$BEADS_DIR/.gitignore" 2>/dev/null; then
-    echo "formulas/tackle.formula.toml" >> "$BEADS_DIR/.gitignore"
-  fi
+# Add to .gitignore if not already present
+if ! grep -q "formulas/tackle.formula.toml" "$BEADS_DIR/.gitignore" 2>/dev/null; then
+  echo "formulas/tackle.formula.toml" >> "$BEADS_DIR/.gitignore"
 fi
 ```
 
