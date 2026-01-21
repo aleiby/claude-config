@@ -1,8 +1,14 @@
 # Research Phase
 
-Bootstrap setup, upstream detection, and context search for related work.
+Research has two levels:
+- **Project-level** (cached): CONTRIBUTING.md, guidelines, PR patterns - reusable across issues
+- **Issue-specific** (fresh): Is this issue already solved? Existing PRs? Claims?
 
-## Section 1: Pre-Flight Checks & Setup
+Molecule creation happens AFTER issue-specific research confirms we should proceed.
+
+---
+
+## Section 1: Pre-Flight Checks
 
 Before starting, verify environment:
 
@@ -16,7 +22,29 @@ git remote -v | grep -q . || echo "ERROR: No git remotes configured"
 
 If any check fails, stop and resolve before proceeding.
 
-### Issue Resolution
+---
+
+## Section 2: Resume Existing Molecule
+
+**Check first** - if a molecule is already attached, resume it:
+
+```bash
+gt mol status
+```
+
+If attached:
+```bash
+bd --no-daemon mol current  # Show current position
+bd ready                    # Find next executable step
+```
+
+Resume from the current step. Skip the rest of this setup flow.
+
+If no molecule attached, continue with new tackle flow below.
+
+---
+
+## Section 3: Issue Resolution
 
 The user's input may be an issue ID, a partial match, or a description of new work.
 
@@ -25,7 +53,7 @@ The user's input may be an issue ID, a partial match, or a description of new wo
 bd show <input> 2>/dev/null
 ```
 
-If this succeeds, use this issue and continue to Section 2.
+If this succeeds, use this issue and continue.
 
 **Step 2: If direct lookup fails, search for fuzzy matches**
 ```bash
@@ -49,6 +77,41 @@ bd create --title="<title>" --type=<type> --priority=2
 ```
 
 Use the returned issue ID and continue.
+
+---
+
+## Section 4: Upstream Detection
+
+**CANONICAL DEFINITIONS** - Other resources reference this section.
+
+### Detect Upstream
+
+Priority: upstream > fork-source > origin
+
+```bash
+UPSTREAM_URL=$(git remote -v | grep -E '^upstream\s' | head -1 | awk '{print $2}')
+[ -z "$UPSTREAM_URL" ] && UPSTREAM_URL=$(git remote -v | grep -E '^fork-source\s' | head -1 | awk '{print $2}')
+[ -z "$UPSTREAM_URL" ] && UPSTREAM_URL=$(git remote -v | grep -E '^origin\s' | head -1 | awk '{print $2}')
+
+# Extract org/repo from URL
+# From: https://github.com/org/repo.git or git@github.com:org/repo.git
+# To: org/repo
+ORG_REPO=$(echo "$UPSTREAM_URL" | sed -E 's#.*github.com[:/]([^/]+/[^/]+)(\.git)?$#\1#')
+```
+
+### Detect Default Branch
+
+```bash
+DEFAULT_BRANCH=$(git remote show upstream 2>/dev/null | grep 'HEAD branch' | cut -d: -f2 | xargs)
+[ -z "$DEFAULT_BRANCH" ] && DEFAULT_BRANCH=$(git remote show origin | grep 'HEAD branch' | cut -d: -f2 | xargs)
+UPSTREAM_REF="upstream/$DEFAULT_BRANCH"
+```
+
+---
+
+## Section 5: Project-Level Research (Cached)
+
+This research applies to the entire project and can be reused across multiple issues.
 
 ### First-Time Setup: Install Formula
 
@@ -86,72 +149,9 @@ if [ ! -f "$FORMULA_DST" ]; then
 fi
 ```
 
-## Section 2: Upstream & Branch Detection
-
-**CANONICAL DEFINITIONS** - Other resources reference this section.
-
-### Upstream Detection
-
-Priority: upstream > fork-source > origin
-
-```bash
-UPSTREAM_URL=$(git remote -v | grep -E '^upstream\s' | head -1 | awk '{print $2}')
-[ -z "$UPSTREAM_URL" ] && UPSTREAM_URL=$(git remote -v | grep -E '^fork-source\s' | head -1 | awk '{print $2}')
-[ -z "$UPSTREAM_URL" ] && UPSTREAM_URL=$(git remote -v | grep -E '^origin\s' | head -1 | awk '{print $2}')
-
-# Extract org/repo from URL
-# From: https://github.com/org/repo.git or git@github.com:org/repo.git
-# To: org/repo
-ORG_REPO=$(echo "$UPSTREAM_URL" | sed -E 's#.*github.com[:/]([^/]+/[^/]+)(\.git)?$#\1#')
-```
-
-### Default Branch Detection
-
-```bash
-DEFAULT_BRANCH=$(git remote show upstream 2>/dev/null | grep 'HEAD branch' | cut -d: -f2 | xargs)
-[ -z "$DEFAULT_BRANCH" ] && DEFAULT_BRANCH=$(git remote show origin | grep 'HEAD branch' | cut -d: -f2 | xargs)
-UPSTREAM_REF="upstream/$DEFAULT_BRANCH"
-```
-
-## Section 3: Molecule Management
-
-### Check for Attached Molecule
-
-```bash
-gt mol status
-```
-
-### Create New Molecule (if none attached)
-
-```bash
-# Create the molecule (requires --no-daemon flag)
-bd --no-daemon mol pour tackle --var issue=<issue-id>
-# Returns: Root issue: gt-mol-xxxxx
-
-# Add formula label for pattern detection in retro phase
-bd update <molecule-id> --add-label "formula:tackle"
-
-# Attach molecule (auto-detects your agent bead from cwd)
-gt mol attach <molecule-id>
-
-# If "not pinned" error:
-#   1. Find your agent bead: bd list --type=agent --title-contains="<your-name>"
-#   2. Set to pinned: bd update <agent-bead-id> --status=pinned
-#   3. Retry: gt mol attach <molecule-id>
-```
-
-### Resume Existing Molecule
-
-```bash
-bd --no-daemon mol current  # Show current position
-bd ready                    # Find next executable step
-```
-
-## Section 4: Cache Management
+### Check for Cached Research
 
 Research cache bead IDs are stored in `.beads/config.yaml` for fast lookup.
-
-### Check for Cached Research
 
 ```bash
 # Fast path: Check config for cached bead ID
@@ -229,7 +229,7 @@ open_prs_json: |
   [...]
 ```
 
-### Create or Update Cache Bead
+#### Create or Update Cache Bead
 
 ```bash
 NOW=$(date -Iseconds)
@@ -254,7 +254,7 @@ else
 fi
 ```
 
-### Record Check Without Changes
+#### Record Check Without Changes
 
 If cache was checked but upstream data hasn't changed, still update `last_checked`:
 
@@ -264,7 +264,7 @@ bd update "$CACHE_BEAD" --notes "last_checked: $(date -Iseconds)"
 
 This prevents redundant upstream fetches on subsequent runs.
 
-## Section 5: Related Upstream Discovery
+### Related Upstream Discovery
 
 Parse the upstream README for dependencies or related projects:
 
@@ -278,7 +278,11 @@ README=$(gh api repos/$ORG_REPO/contents/README.md --jq '.content' 2>/dev/null |
 
 Present any related upstreams found for user review (see bootstrap gate in SKILL.md).
 
-## Section 6: Context Search
+---
+
+## Section 6: Issue-Specific Research
+
+This research is specific to the issue being tackled. Do this BEFORE creating a molecule.
 
 ### Load Issue Details
 
@@ -286,18 +290,72 @@ Present any related upstreams found for user review (see bootstrap gate in SKILL
 bd show <issue-id>
 ```
 
-Extract: title, description, type, labels/tags.
+Extract: title, description, type, labels/tags, external_ref (upstream issue number if linked).
 
-### Load Research Cache
+### Check if Upstream Issue is Closed
+
+If the local issue links to an upstream issue:
+
+```bash
+UPSTREAM_ISSUE=$(bd show <issue-id> --json | jq -r '.[0].external_ref // empty' | grep -oP 'issue:\K\d+')
+
+if [ -n "$UPSTREAM_ISSUE" ]; then
+  ISSUE_STATE=$(gh api repos/$ORG_REPO/issues/$UPSTREAM_ISSUE --jq '.state')
+  if [ "$ISSUE_STATE" = "closed" ]; then
+    echo "Upstream issue #$UPSTREAM_ISSUE is already CLOSED"
+  fi
+fi
+```
+
+### Check for Linked PRs
+
+PRs using "Fixes #XXX" won't appear in title searches. Check the timeline:
+
+```bash
+gh api repos/$ORG_REPO/issues/$UPSTREAM_ISSUE/timeline \
+  --jq '.[] | select(.event == "cross-referenced") | .source.issue | {number, title, state, html_url}'
+```
+
+### Check Own Open PRs
+
+Check if you already have an open PR addressing this:
+
+```bash
+gh pr list --repo $ORG_REPO --author @me --json number,title,headRefName,statusCheckRollup,mergeable
+```
+
+Look for PRs with matching keywords in title or branch name.
+
+Also alert on PRs needing attention (CI failures or merge conflicts):
+
+```bash
+gh pr list --repo $ORG_REPO --author @me --json number,title,statusCheckRollup,mergeable \
+  --jq '.[] | select(.statusCheckRollup == "FAILURE" or .mergeable == "CONFLICTING")'
+```
+
+### Check for Claims
+
+Check if someone has already claimed the upstream issue:
+
+```bash
+gh api repos/$ORG_REPO/issues/$UPSTREAM_ISSUE/comments --jq '
+  .[-10:] | .[] | select(.body | test("working on|taking this|I.ll (work|tackle|fix)|claimed|assigned to me"; "i"))
+  | {user: .user.login, date: .created_at, body: .body[:100]}'
+```
+
+### Fuzzy Search for Related Work
+
+Using the cached project research:
 
 ```bash
 RESEARCH=$(bd show "$CACHE_BEAD" --json | jq -r '.[0].description')
-```
 
-Extract:
-- `open_issues_json`: for fuzzy issue matching
-- `open_prs_json`: for fuzzy PR matching
-- `guidelines`: for implementation conventions
+# Related issues
+echo "$RESEARCH" | yq '.open_issues_json' | jq '.[] | select(.title | test("keyword"; "i"))'
+
+# Related PRs
+echo "$RESEARCH" | yq '.open_prs_json' | jq '.[] | select(.title | test("keyword"; "i"))'
+```
 
 ### Check Fork Status
 
@@ -311,119 +369,32 @@ git rev-list --count HEAD..$UPSTREAM_REF
 git log --oneline HEAD..$UPSTREAM_REF | head -20
 ```
 
-Review commits for fixes related to our issue, changes in files we plan to modify.
+Review commits for fixes related to our issue.
 
-### Check Own Open PRs
+---
 
-Before starting new work, check if you have open PRs needing attention:
+## Section 7: Existing Work Decision
 
-```bash
-gh pr list --repo $ORG_REPO --author @me --json number,title,statusCheckRollup,mergeable \
-  --jq '.[] | select(.statusCheckRollup == "FAILURE" or .mergeable == "CONFLICTING")'
-```
+Based on issue-specific research, decide whether to proceed.
 
-If any PRs have CI failures or merge conflicts, alert the user:
+### If Issue Already Addressed
 
 ```
-Note: You have open PRs needing attention:
-  - #123: "Fix X" - CI failing
-  - #456: "Add Y" - merge conflicts
-
-Consider addressing these before starting new work.
-```
-
-### Fuzzy Search for Related Issues
-
-```bash
-echo "$RESEARCH" | yq '.open_issues_json' | jq '.[] | select(.title | test("keyword"; "i"))'
-```
-
-### Fuzzy Search for Related PRs
-
-```bash
-echo "$RESEARCH" | yq '.open_prs_json' | jq '.[] | select(.title | test("keyword"; "i"))'
-```
-
-### Check for Linked PRs
-
-PRs using "Fixes #XXX" won't appear in title searches. Check the timeline first:
-
-```bash
-gh api repos/$ORG_REPO/issues/<issue-number>/timeline \
-  --jq '.[] | select(.event == "cross-referenced") | .source.issue | {number, title, state, html_url}'
-```
-
-### Check for Issue Claims
-
-Before starting work, check if someone has already claimed the upstream issue:
-
-```bash
-gh api repos/$ORG_REPO/issues/<issue-number>/comments --jq '
-  .[-10:] | .[] | select(.body | test("working on|taking this|I.ll (work|tackle|fix)|claimed|assigned to me"; "i"))
-  | {user: .user.login, date: .created_at, body: .body[:100]}'
-```
-
-If someone claimed it recently (within ~2 weeks), alert the user:
-
-```
-Note: This issue may already be claimed:
-  @contributor (3 days ago): "I'm working on this, PR incoming"
+Found existing work for this issue:
+  - Upstream issue #123 is CLOSED (fixed 2h ago)
+  - PR #456 already addresses this (open, ready for review)
+  - You have PR #789 open for this (CI failing)
 
 Options:
-  - Check if they're still active (view their recent activity)
-  - Coordinate with them (comment or reach out)
-  - Proceed anyway (if claim seems stale)
+  - Skip tackle (close local issue if upstream is fixed)
+  - Wait for existing PR to merge
+  - Fix your existing PR
+  - Proceed with new implementation anyway
 ```
 
-### Claiming an Issue
+Accept natural language responses.
 
-If no one has claimed the issue and we're proceeding, offer to claim it:
-
-```
-No existing claims found on upstream issue #123.
-
-Claim this issue before starting?
-  - Yes, comment "I'd like to work on this"
-  - No, proceed without claiming
-```
-
-If user wants to claim:
-
-```bash
-gh issue comment <issue-number> --repo $ORG_REPO --body "I'd like to work on this. I'll submit a PR soon."
-```
-
-Track the claim in the molecule notes for reference.
-
-## Section 7: Existing PR Handling
-
-**Critical**: If a highly-relevant open PR exists that would fix our issue:
-
-1. Transition to `existing-pr-check` phase
-2. Present decision point
-
-### Presenting Existing PR
-
-When relevant PR found:
-
-```
-Found upstream PR #1234 that appears to address this issue:
-  Title: Fix doctor indentation
-  Status: Open (ready for review)
-  Files: cmd/bd/doctor/database.go
-
-What would you like to do?
-  - Apply this PR locally and test it
-  - Wait for it to merge upstream
-  - Proceed with our own implementation
-```
-
-Accept natural language responses:
-- "apply that PR and test it" / "test it locally" / "try it"
-- "wait for it to merge" / "let's wait" / "hold off"
-- "I'll implement my own" / "proceed anyway" / "do it myself"
-
-### Apply PR Flow
+### Apply Existing PR Flow
 
 1. Fetch the PR branch:
    ```bash
@@ -446,15 +417,60 @@ bd update <issue-id> --status=blocked --notes="Blocked on upstream PR #1234"
 
 Skill pauses. Resume when PR merges.
 
-### Implement Anyway Flow
+### Proceed with Implementation
 
-1. Note the existing PR for reference
-2. Continue to plan phase
-3. Consider coordinating with existing PR author
+If no blockers found, or user chooses to proceed anyway:
+1. Continue to molecule creation (Section 8)
+2. Note any existing PRs for reference
 
-## Context Output
+---
 
-Present as **context only**, never suggestions:
+## Section 8: Create Molecule
+
+Only create a molecule if proceeding with new implementation.
+
+### Claim the Issue (Optional)
+
+If no one has claimed the upstream issue, offer to claim it:
+
+```
+No existing claims found on upstream issue #123.
+
+Claim this issue before starting?
+  - Yes, comment "I'd like to work on this"
+  - No, proceed without claiming
+```
+
+If user wants to claim:
+
+```bash
+gh issue comment $UPSTREAM_ISSUE --repo $ORG_REPO --body "I'd like to work on this. I'll submit a PR soon."
+```
+
+### Create and Attach Molecule
+
+```bash
+# Create the molecule (requires --no-daemon flag)
+bd --no-daemon mol pour tackle --var issue=<issue-id>
+# Returns: Root issue: gt-mol-xxxxx
+
+# Add formula label for pattern detection in retro phase
+bd update <molecule-id> --add-label "formula:tackle"
+
+# Attach molecule (auto-detects your agent bead from cwd)
+gt mol attach <molecule-id>
+
+# If "not pinned" error:
+#   1. Find your agent bead: bd list --type=agent --title-contains="<your-name>"
+#   2. Set to pinned: bd update <agent-bead-id> --status=pinned
+#   3. Retry: gt mol attach <molecule-id>
+```
+
+---
+
+## Section 9: Context Output
+
+Present research as **context only**, never suggestions:
 
 ```
 ## Upstream Context for <issue-id>
@@ -490,14 +506,16 @@ You are working on YOUR assigned issue: <issue-id>
 - Consider working on #1230 first  <-- NEVER
 ```
 
+---
+
 ## Advancing Steps
 
-After bootstrap:
+After bootstrap (project research):
 ```bash
 bd close <bootstrap-step-id> --continue
 ```
 
-After context:
+After context (issue research):
 ```bash
 bd close <context-step-id> --continue
 ```
