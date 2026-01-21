@@ -293,14 +293,16 @@ Accept natural language responses. If user chooses to skip/wait, do not create m
 
 #### 8. Sync Formula
 
-Before creating the molecule, ensure the formula is current:
+Before creating the molecule, install the formula to town-level (user formulas, not project-specific):
 
 ```bash
 FORMULA_SRC="/home/aleiby/.claude/skills/tackle/resources/tackle.formula.toml"
 
-# Copy to local .beads/formulas (works with or without redirects)
-mkdir -p .beads/formulas
-cp "$FORMULA_SRC" .beads/formulas/tackle.formula.toml
+# Install to town-level formulas (Tier 2 - cross-project, user workflows)
+# GT_TOWN_ROOT is set by Gas Town, defaults to ~/gt
+TOWN_FORMULAS="${GT_TOWN_ROOT:-$HOME/gt}/.beads/formulas"
+mkdir -p "$TOWN_FORMULAS"
+cp "$FORMULA_SRC" "$TOWN_FORMULAS/tackle.formula.toml"
 ```
 
 #### 9. Create Molecule (only if proceeding)
