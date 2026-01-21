@@ -160,7 +160,8 @@ if [ -z "$UPSTREAM_URL" ]; then
   exit 1
 fi
 
-ORG_REPO=$(echo "$UPSTREAM_URL" | sed -E 's#.*github.com[:/]([^/]+/[^/]+)(\.git)?$#\1#')
+# Extract org/repo, strip .git suffix if present
+ORG_REPO=$(echo "$UPSTREAM_URL" | sed -E 's#.*github.com[:/]##' | sed 's/\.git$//')
 
 # Verify we got a valid org/repo
 if [ -z "$ORG_REPO" ] || [ "$ORG_REPO" = "$UPSTREAM_URL" ]; then
@@ -294,8 +295,16 @@ Accept natural language responses. If user chooses to skip/wait, do not create m
 
 ```bash
 # Create molecule and capture ID (requires --no-daemon)
-MOL_ID=$(bd --no-daemon mol pour tackle --var issue=<issue-id> --var upstream="$ORG_REPO" --json | jq -r '.id')
+# Note: mol pour outputs "Root issue: <id>" - parse that line
+MOL_OUTPUT=$(bd --no-daemon mol pour tackle --var issue=<issue-id> --var upstream="$ORG_REPO" 2>&1)
+MOL_ID=$(echo "$MOL_OUTPUT" | grep "Root issue:" | sed 's/.*Root issue: //')
 echo "Created molecule: $MOL_ID"
+
+if [ -z "$MOL_ID" ]; then
+  echo "ERROR: Failed to create molecule"
+  echo "$MOL_OUTPUT"
+  exit 1
+fi
 
 # Add formula label for pattern detection
 bd update "$MOL_ID" --add-label "formula:tackle"
@@ -621,7 +630,7 @@ To abandon a tackle mid-workflow:
 
 1. **Burn the molecule** (discard without squashing):
    ```bash
-   bd --no-daemon mol burn <molecule-id>
+   bd --no-daemon mol burn <molecule-id> --force
    ```
 
 2. **Clean up branch** (if created):
