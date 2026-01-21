@@ -25,23 +25,19 @@ When user asks for help, show this Quick Reference section.
 
 ## Resource Loading (Progressive Disclosure)
 
-**DO NOT load all resource files.** Each contains phase-specific instructions.
-Loading unnecessary resources wastes context and may cause confusion.
+**DO NOT load all resource files.** Load only what's needed for your current step.
 
-| Current Step | Load Resource |
-|--------------|---------------|
-| bootstrap | RESEARCH.md (project-level research) |
-| gate-bootstrap | (gate details below) |
-| context, existing-pr-check | (handled in Starting Tackle above) |
+Check current step with `bd --no-daemon mol current`, then use this lookup:
+
+| If Current Step Is | Load Resource |
+|--------------------|---------------|
 | plan, branch, implement | IMPLEMENT.md |
+| gate-plan, gate-submit | (none - see gate details in this file) |
 | validate | VALIDATION.md |
-| gate-plan, gate-submit | (gate details below) |
 | submit, record | SUBMIT.md |
-| retro | REFLECT.md |
+| reflect | REFLECT.md |
 
-**Note:** Issue-specific research (is it already solved?) happens in SKILL.md before molecule creation. RESEARCH.md is only for project-level research (CONTRIBUTING.md, guidelines, patterns) which is cached and refreshed at most daily.
-
-Check current step with `bd --no-daemon mol current`, then load ONLY the matching resource.
+**Pre-molecule:** Only load RESEARCH.md when the project research cache is stale (at most daily).
 
 ## State Management via Beads Molecules
 
@@ -54,7 +50,7 @@ and installed to the rig's `.beads/formulas/` on first use.
 bd --no-daemon mol pour tackle --var issue=<id>
 # Returns: Root issue: gt-mol-xxxxx
 
-# Add formula label for pattern detection in retro phase
+# Add formula label for pattern detection in reflect phase
 bd update <molecule-id> --add-label "formula:tackle"
 
 # Attach molecule to track your work (auto-detects your agent bead from cwd)
@@ -81,9 +77,17 @@ bd close <step-id> --continue   # Complete step and auto-advance
 ## Phase Flow
 
 ```
-Bootstrap → GATE:Bootstrap → Context → [Existing PR Check] → Plan → GATE:Plan → Branch → Implement → Validate → GATE:Submit → Submit → Record → Retro
-                                              ↓                                                                                              ↑
-                                    [apply | wait | implement anyway]                                                              (can defer until PR merged)
+Pre-molecule (research):
+  - Detect Upstream
+  - [Project-Research → Project-Report] (only if cache stale)
+  - Issue-Research (checks all tracked repos)
+      → Existing Work Decision → (skip | wait | proceed)
+  - Create Molecule
+
+Molecule steps (implementation):
+  Plan → GATE:Plan
+    → Branch → Implement → Validate → GATE:Submit
+      → Submit → Record → Reflect
 ```
 
 ## Execution Instructions
@@ -137,44 +141,109 @@ If no matches, offer to create a bead for the work.
 #### 3. Detect Upstream
 
 ```bash
+# Detect remote (prefer upstream, then fork-source, then origin)
+UPSTREAM_REMOTE="upstream"
 UPSTREAM_URL=$(git remote -v | grep -E '^upstream\s' | head -1 | awk '{print $2}')
-[ -z "$UPSTREAM_URL" ] && UPSTREAM_URL=$(git remote -v | grep -E '^fork-source\s' | head -1 | awk '{print $2}')
-[ -z "$UPSTREAM_URL" ] && UPSTREAM_URL=$(git remote -v | grep -E '^origin\s' | head -1 | awk '{print $2}')
+if [ -z "$UPSTREAM_URL" ]; then
+  UPSTREAM_REMOTE="fork-source"
+  UPSTREAM_URL=$(git remote -v | grep -E '^fork-source\s' | head -1 | awk '{print $2}')
+fi
+if [ -z "$UPSTREAM_URL" ]; then
+  UPSTREAM_REMOTE="origin"
+  UPSTREAM_URL=$(git remote -v | grep -E '^origin\s' | head -1 | awk '{print $2}')
+fi
 
 ORG_REPO=$(echo "$UPSTREAM_URL" | sed -E 's#.*github.com[:/]([^/]+/[^/]+)(\.git)?$#\1#')
+
+# Detect default branch
+DEFAULT_BRANCH=$(gh api repos/$ORG_REPO --jq '.default_branch')
+UPSTREAM_REF="$UPSTREAM_REMOTE/$DEFAULT_BRANCH"
 ```
 
-#### 4. Issue-Specific Research (before molecule creation)
+Variables set:
+- `UPSTREAM_REMOTE` - the git remote name (upstream, fork-source, or origin)
+- `UPSTREAM_URL` - the remote URL
+- `ORG_REPO` - the org/repo format (e.g., "steveyegge/beads")
+- `DEFAULT_BRANCH` - the default branch name (e.g., "main")
+- `UPSTREAM_REF` - the full ref (e.g., "upstream/main")
 
-Check if issue is already addressed before creating a molecule:
+#### 4. Project Research (cache check)
+
+Check if project-level research cache needs refreshing. This identifies the main upstream AND related repos (dependencies, etc.).
+
+See "Project Research Step" section below for cache check logic.
+
+- If cache is fresh: use cached list of tracked repos
+- If cache is stale: load RESEARCH.md, refresh cache (this discovers related repos)
+
+#### 5. Project Report (only if new data found)
+
+If project research found new data, present the checkpoint (see RESEARCH.md Section 5).
+
+User can add more related repos to track, or continue.
+
+#### 6. Issue-Specific Research
+
+**First, check for pending PR outcomes:**
+
+Look for any local issues with `in_review` status and check their PR outcomes:
+
+```bash
+# Find issues awaiting PR outcomes
+IN_REVIEW=$(bd list --status=in_review --json | jq -r '.[] | {id, title, notes}')
+```
+
+For each `in_review` issue, extract the PR URL from notes and check its status:
+
+```bash
+PR_STATE=$(gh pr view <pr-number> --repo <upstream> --json state --jq '.state')
+```
+
+- If `MERGED`: `bd close <issue-id> --reason "PR merged"`
+- If `CLOSED`: `bd update <issue-id> --status=open --notes="PR rejected/closed"` to retry, or `bd close <issue-id> --reason "PR rejected"` if not worth retrying
+- If `OPEN`: leave as `in_review`
+
+**Then, check if the current issue is already addressed.**
+
+Check ALL tracked repos (main upstream + related repos from project research cache), not just the primary upstream.
+
+```bash
+# Get tracked repos from cache
+TRACKED_REPOS=$(yq '.tackle.tracked_repos[]' .beads/config.yaml 2>/dev/null)
+# Falls back to just ORG_REPO if no cache
+[ -z "$TRACKED_REPOS" ] && TRACKED_REPOS="$ORG_REPO"
+```
+
+For each tracked repo, check:
 
 **Check if upstream issue is closed:**
 ```bash
 UPSTREAM_ISSUE=$(bd show <issue-id> --json | jq -r '.[0].external_ref // empty' | grep -oP 'issue:\K\d+')
 if [ -n "$UPSTREAM_ISSUE" ]; then
-  ISSUE_STATE=$(gh api repos/$ORG_REPO/issues/$UPSTREAM_ISSUE --jq '.state')
+  ISSUE_STATE=$(gh api repos/$REPO/issues/$UPSTREAM_ISSUE --jq '.state')
 fi
 ```
 
 **Check for linked PRs:**
 ```bash
-gh api repos/$ORG_REPO/issues/$UPSTREAM_ISSUE/timeline \
+gh api repos/$REPO/issues/$UPSTREAM_ISSUE/timeline \
   --jq '.[] | select(.event == "cross-referenced") | .source.issue | {number, title, state}'
 ```
 
 **Check own open PRs:**
 ```bash
-gh pr list --repo $ORG_REPO --author @me --json number,title,headRefName,statusCheckRollup,mergeable
+gh pr list --repo $REPO --author @me --json number,title,headRefName,statusCheckRollup,mergeable
 ```
 
 **Check for claims:**
 ```bash
-gh api repos/$ORG_REPO/issues/$UPSTREAM_ISSUE/comments --jq '
-  .[-10:] | .[] | select(.body | test("working on|taking this|I.ll (work|tackle|fix)"; "i"))
-  | {user: .user.login, date: .created_at, body: .body[:100]}'
+gh api repos/$REPO/issues/$UPSTREAM_ISSUE/comments --jq '
+  .[-10:] | .[] | {user: .user.login, date: .created_at, body: .body[:200]}'
 ```
 
-#### 5. Existing Work Decision
+Review the recent comments and use judgment to determine if someone has claimed this issue (e.g., "I'll work on this", "taking this", "on it", etc.).
+
+#### 7. Existing Work Decision
 
 If existing work found, present options:
 
@@ -193,7 +262,7 @@ Options:
 
 Accept natural language responses. If user chooses to skip/wait, do not create molecule.
 
-#### 6. Create Molecule (only if proceeding)
+#### 8. Create Molecule (only if proceeding)
 
 ```bash
 # Create molecule (requires --no-daemon)
@@ -215,23 +284,69 @@ gh issue comment $UPSTREAM_ISSUE --repo $ORG_REPO --body "I'd like to work on th
 
 ### Phase Execution
 
-Based on current step (from `bd --no-daemon mol current`), load the appropriate resource:
+Based on current step (from `bd --no-daemon mol current`), take the appropriate action.
+See Resource Loading table above for which resource file to load.
 
-| Step ID | Load Resource | Then |
-|---------|---------------|------|
-| `bootstrap` | `resources/RESEARCH.md` | Check/refresh project-level research cache |
-| `gate-bootstrap` | (see below) | **CHECKPOINT** - Present research summary |
-| `context` | (none - use cached research) | Present context output |
-| `existing-pr-check` | (none - already handled) | Skip if no PR found pre-molecule |
-| `plan` | `resources/IMPLEMENT.md` | Create implementation plan |
-| `gate-plan` | (see below) | **STOP** - Wait for approval |
-| `branch` | `resources/IMPLEMENT.md` | Create clean branch |
-| `implement` | `resources/IMPLEMENT.md` | Write code |
-| `validate` | `resources/VALIDATION.md` | Run tests, check isolation |
-| `gate-submit` | (see below) | **STOP** - Wait for approval |
-| `submit` | `resources/SUBMIT.md` | Mark PR ready |
-| `record` | `resources/SUBMIT.md` | Record outcome |
-| `retro` | `resources/REFLECT.md` | Reflect on skill issues (see below) |
+| Step ID | Action |
+|---------|--------|
+| `plan` | Create implementation plan |
+| `gate-plan` | **STOP** - Wait for plan approval |
+| `branch` | Create clean branch from upstream |
+| `implement` | Write code following upstream conventions |
+| `validate` | Run tests, check isolation |
+| `gate-submit` | **STOP** - Wait for submit approval |
+| `submit` | Mark draft PR ready for review |
+| `record` | Update local issue with PR link |
+| `reflect` | Reflect on skill issues (see Reflect section) |
+
+---
+
+## Project Research Step (Pre-Molecule)
+
+This pre-molecule step checks if project-level research needs refreshing. **Only load RESEARCH.md if the cache is stale.**
+
+### Check Cache Freshness
+
+```bash
+# ORG_REPO should be set from upstream detection earlier
+# Fast path: Check config for cached bead ID
+CACHE_BEAD=$(yq ".tackle.cache_beads[\"$ORG_REPO\"]" .beads/config.yaml 2>/dev/null)
+
+# Fallback: Label search if not in config
+if [ -z "$CACHE_BEAD" ] || [ "$CACHE_BEAD" = "null" ]; then
+  CACHE_BEAD=$(bd list --label=tackle-cache --title-contains="$ORG_REPO" --json | jq -r '.[0].id // empty')
+fi
+
+# Check freshness (24h threshold)
+if [ -n "$CACHE_BEAD" ] && [ "$CACHE_BEAD" != "null" ]; then
+  LAST_CHECKED=$(bd show "$CACHE_BEAD" --json | jq -r '.[0].notes' | grep -oP 'last_checked: \K[^\n]+' || echo "")
+  if [ -n "$LAST_CHECKED" ]; then
+    LAST_TS=$(date -d "$LAST_CHECKED" +%s 2>/dev/null || echo 0)
+    NOW_TS=$(date +%s)
+    AGE_HOURS=$(( (NOW_TS - LAST_TS) / 3600 ))
+    if [ "$AGE_HOURS" -lt 24 ]; then
+      CACHE_FRESH=true
+    fi
+  fi
+fi
+```
+
+### If Cache Fresh
+
+Skip loading RESEARCH.md. Update last_checked and continue to issue-research:
+
+```bash
+bd update "$CACHE_BEAD" --notes "last_checked: $(date -Iseconds)"
+# Continue to step 6 (Issue-Specific Research)
+```
+
+### If Cache Stale or Missing
+
+Load `resources/RESEARCH.md` for full refresh instructions. This discovers related repos (dependencies, etc.) and caches them. After refresh, present project-report checkpoint if new data was found, then continue to issue-research.
+
+### Force Refresh
+
+`/tackle --refresh` forces a refresh regardless of cache age. Load RESEARCH.md.
 
 ---
 
@@ -257,44 +372,6 @@ Accept natural language **rejection**:
 3. **NEVER** submit a PR without gate-submit approval
 4. **ALL agents** stop at gates - no exceptions
 5. If no human in loop, **WAIT INDEFINITELY** at the gate
-
----
-
-## Gate 0: `gate-bootstrap` (Research Checkpoint)
-
-**CHECKPOINT** - Appears when research cache is updated.
-
-This is a soft gate for presenting research results and suggesting related upstreams.
-
-```
-┌────────────────────────────────────────────────────────────────────┐
-│  🔍 CHECKPOINT: Contribution Research                              │
-└────────────────────────────────────────────────────────────────────┘
-
-Upstream: steveyegge/gastown
-Guidelines: Found CONTRIBUTING.md
-Open issues: 12 | Open PRs: 3
-
-## Research Summary
-- Commit style: present tense, max 72 chars
-- Testing: go test ./...
-- PR requires: description, test plan
-
-## Related Projects Detected
-From README:
-  - steveyegge/beads (mentioned in dependencies)
-
-Track these for additional context?
-```
-
-### On Response
-
-- If user wants to add related upstreams: fetch research for them, then continue
-- If user skips: continue to context phase
-
-```bash
-bd close <gate-bootstrap-step-id> --continue
-```
 
 ---
 
@@ -475,18 +552,11 @@ This ensures no autonomous PR submission.
 
 ---
 
-## Retrospective (Quick Reference)
+## Reflect (Quick Reference)
 
-The `retro` step captures issues with the tackle process itself (not task-specific problems).
+The `reflect` step captures issues with the tackle process itself (not task-specific problems).
 
-**If the run was smooth** - no need to load REFLECT.md:
-```bash
-bd close <retro-step-id> --reason "Clean run - no issues"
-```
-
-**If there were issues** - load REFLECT.md for full guidance:
-- **Fix immediately**: Objective errors (wrong flags, syntax errors)
-- **Note for patterns**: Subjective friction detected via molecule history
+Load REFLECT.md to assess the run and complete the reflect step.
 
 ### Completing Steps
 
@@ -520,8 +590,6 @@ To abandon a tackle mid-workflow:
 The issue returns to ready state for future work.
 
 ### Upstream Detection
-
-See RESEARCH.md Section 2 for canonical upstream and default branch detection.
 
 Priority for detecting upstream:
 1. Git remote named `upstream`
@@ -558,8 +626,6 @@ Current step: <step-name> (from bd --no-daemon mol current)
 Branch: <branch-name>
 
 ### Completed
-- [x] bootstrap
-- [x] context
 - [x] plan (approved)
 - [ ] implement (in progress)
 

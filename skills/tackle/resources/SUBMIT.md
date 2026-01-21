@@ -128,12 +128,12 @@ After PR submission:
 
 | Thing | When to Close | Why |
 |-------|---------------|-----|
-| **Molecule** (gt-mol-xxx) | After retro step | Workflow complete, PR submitted |
-| **Issue/task bead** (hq-xxx) | After PR merges | Work not done until fix is in upstream |
+| **Molecule** (gt-mol-xxx) | After reflect step | Workflow complete, PR submitted |
+| **Issue/task bead** (hq-xxx) | After PR outcome | Work not done until fix is in upstream |
 
 - Closing the molecule does NOT close the issue
-- Issue stays `in_review` until PR is merged upstream
-- Once merged, close the issue manually: `bd close <issue-id>`
+- Issue stays `in_review` until PR outcome is known
+- PR outcomes are checked during issue-research (SKILL.md step 6) on future tackle invocations
 
 This separation allows tracking issues through the full lifecycle, even if PRs need revisions or take time to merge.
 
@@ -171,13 +171,13 @@ To check PR status:
   gh pr view 123 --repo steveyegge/beads
 ```
 
-### 4. Advance to Retro
+### 4. Advance to Reflect
 
 ```bash
 bd close <record-step-id> --continue
 ```
 
-Use `bd ready` to find the retro step.
+Use `bd ready` to find the reflect step.
 
 ## Error Handling
 

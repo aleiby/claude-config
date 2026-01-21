@@ -16,66 +16,8 @@ description = "Detected upstream org/repo"
 required = false
 
 [[steps]]
-id = "bootstrap"
-title = "Bootstrap upstream research"
-description = """
-See RESEARCH.md Sections 1-5.
-
-1. Pre-flight checks (gh auth, git remotes, issue exists)
-2. Detect upstream from git remotes (upstream > fork-source > origin)
-3. Detect default branch
-4. Check research cache freshness (>24h = stale)
-5. If stale, refresh: CONTRIBUTING.md, PR patterns, open issues
-6. Discover related upstreams from README
-"""
-
-[[steps]]
-id = "gate-bootstrap"
-title = "GATE: Research review"
-needs = ["bootstrap"]
-description = """
-**CHECKPOINT** (appears when research cache updated)
-
-Present research summary and any related upstream suggestions.
-User can add related upstreams or skip.
-
-See SKILL.md bootstrap gate section for presentation format.
-"""
-
-[[steps]]
-id = "context"
-title = "Search upstream for related work"
-needs = ["gate-bootstrap"]
-description = """
-See RESEARCH.md Section 6.
-
-Fuzzy search upstream for:
-- Issues with similar keywords/titles
-- Open PRs addressing related problems
-- Recently merged PRs in same area
-- Recent commits ahead of our fork
-
-Output: Contextual information (NOT suggestions to work on)
-"""
-
-[[steps]]
-id = "existing-pr-check"
-title = "Check for existing fix PR"
-needs = ["context"]
-description = """
-See RESEARCH.md Section 7.
-
-If a highly-relevant open PR exists that would fix our issue:
-1. Present options (natural language accepted)
-2. If apply-pr: fetch, test locally, close if passes
-3. If wait-upstream: mark blocked, track PR status
-4. If implement-anyway: continue to plan
-"""
-
-[[steps]]
 id = "plan"
 title = "Create implementation plan"
-needs = ["existing-pr-check"]
 description = """
 See IMPLEMENT.md Plan Phase.
 
@@ -104,10 +46,10 @@ needs = ["gate-plan"]
 description = """
 See IMPLEMENT.md Branch Phase.
 
-git fetch upstream
-git checkout -b <type>/<issue-id>-<description> upstream/$DEFAULT_BRANCH
+git fetch $UPSTREAM_REMOTE
+git checkout -b <type>/<issue-id>-<description> $UPSTREAM_REF
 
-Use default branch from RESEARCH.md Section 2.
+Variables from SKILL.md "Detect Upstream" section.
 """
 
 [[steps]]
@@ -179,8 +121,8 @@ Update local issue with PR link.
 """
 
 [[steps]]
-id = "retro"
-title = "Retrospective"
+id = "reflect"
+title = "Reflect"
 needs = ["record"]
 description = """
 See REFLECT.md.

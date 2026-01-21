@@ -4,10 +4,10 @@ Verify implementation before submission.
 
 ## Setup
 
-Use upstream and default branch from RESEARCH.md Section 2:
+Use upstream and default branch (see SKILL.md "Detect Upstream"):
 ```bash
 # UPSTREAM_REF should already be set from earlier phases
-# If resuming, re-detect per RESEARCH.md Section 2
+# If resuming, re-detect per SKILL.md upstream detection
 ```
 
 ## Validation Checklist
@@ -88,7 +88,7 @@ If isolation fails:
 Ensure branch is up-to-date with upstream:
 
 ```bash
-git fetch upstream
+git fetch $UPSTREAM_REMOTE
 git log --oneline $UPSTREAM_REF..HEAD  # Our commits
 git log --oneline HEAD..$UPSTREAM_REF  # Commits we're behind
 ```
@@ -200,7 +200,7 @@ Action: Rebase on upstream default branch before proceeding.
 ```
 
 ```bash
-git fetch upstream
+git fetch $UPSTREAM_REMOTE
 git rebase $UPSTREAM_REF
 # Re-run tests after rebase
 ```

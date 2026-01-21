@@ -6,7 +6,7 @@ Covers: plan creation, branch setup, and code implementation.
 
 Create an implementation plan based on:
 - Issue requirements
-- Upstream context (from context phase)
+- Upstream context (from cached research)
 - Cached research (patterns, conventions)
 
 ### Check: Upstream Issue Required?
@@ -20,7 +20,7 @@ guidelines:
 ```
 
 If this change qualifies as "larger" (significant new feature, architectural change, etc.):
-1. Check if a related upstream issue already exists (from context phase)
+1. Check if a related upstream issue already exists (from pre-molecule research)
 2. If not, consider creating one first: `gh issue create --repo <upstream>`
 3. Reference the upstream issue in the PR
 
@@ -82,19 +82,20 @@ After plan approval, create clean branch from upstream.
 ### Fetch Latest
 
 ```bash
-git fetch upstream || git fetch origin
+git fetch $UPSTREAM_REMOTE
 ```
 
 ### Create Branch
 
-Use upstream and default branch from RESEARCH.md Section 2:
+Use upstream and default branch (see SKILL.md "Detect Upstream"):
 
 ```bash
-# DEFAULT_BRANCH and UPSTREAM_REF from RESEARCH.md
 git checkout -b <type>/<issue-id>-<description> $UPSTREAM_REF
 ```
 
 Branch naming: `<type>/<issue-id>-<short-description>`
+
+**Issue ID preference:** Use upstream issue number (e.g., `123`) if available, otherwise fall back to local beads ID (e.g., `hq-1234`). Upstream issue numbers are more meaningful in the PR context.
 
 Types:
 - `fix/` - Bug fixes
@@ -103,8 +104,12 @@ Types:
 - `refactor/` - Refactoring
 - `test/` - Test additions
 
-Example:
+Examples:
 ```bash
+# With upstream issue
+git checkout -b fix/123-doctor-indent upstream/main
+
+# Without upstream issue (local beads ID)
 git checkout -b fix/hq-1234-doctor-indent upstream/main
 ```
 
@@ -130,7 +135,9 @@ Write the code following upstream conventions.
 2. **Atomic commits**:
    - Each commit should be a logical unit
    - Conventional commit messages: `type(scope): description`
-   - Reference issue: `fix(doctor): correct indentation (hq-1234)`
+   - Reference issue (prefer upstream issue number if available):
+     - With upstream issue: `fix(doctor): correct indentation (#123)`
+     - Without upstream issue: `fix(doctor): correct indentation (hq-1234)`
 
 3. **Stay focused**:
    - Only change what's needed for the issue
@@ -150,11 +157,15 @@ From cached `research.yaml`:
 commits:
   tense: "present"
   subject_max_length: 72
-  issue_reference_format: "(hq-xxx)"
+  issue_reference_format: "(#xxx)"  # or "(hq-xxx)" if no upstream issue
 ```
 
-Example:
+Examples:
 ```bash
+# With upstream issue number (preferred)
+git commit -m "fix(doctor): correct indentation in database check (#123)"
+
+# Without upstream issue (fallback to local beads ID)
 git commit -m "fix(doctor): correct indentation in database check (hq-1234)"
 ```
 

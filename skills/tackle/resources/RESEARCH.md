@@ -6,15 +6,6 @@ This resource handles **project-level research** - information about the upstrea
 
 ---
 
-## When to Load This Resource
-
-Load RESEARCH.md only when:
-- Starting the `bootstrap` step
-- Running `/tackle --refresh`
-- Research cache is stale (>24h) or missing
-
----
-
 ## Section 1: First-Time Setup
 
 ### Install Formula
@@ -55,43 +46,7 @@ fi
 
 ---
 
-## Section 2: Cache Management
-
-Research cache bead IDs are stored in `.beads/config.yaml` for fast lookup.
-
-### Check for Cached Research
-
-```bash
-# Get ORG_REPO from upstream detection (see SKILL.md)
-ORG_REPO=<org/repo>
-
-# Fast path: Check config for cached bead ID
-CACHE_BEAD=$(yq ".tackle.cache_beads[\"$ORG_REPO\"]" .beads/config.yaml 2>/dev/null)
-
-# Fallback: Label search if not in config
-if [ -z "$CACHE_BEAD" ] || [ "$CACHE_BEAD" = "null" ]; then
-  CACHE_BEAD=$(bd list --label=tackle-cache --title-contains="$ORG_REPO" --json | jq -r '.[0].id // empty')
-fi
-
-if [ -n "$CACHE_BEAD" ] && [ "$CACHE_BEAD" != "null" ]; then
-  # Check freshness from last_checked in notes
-  LAST_CHECKED=$(bd show "$CACHE_BEAD" --json | jq -r '.[0].notes' | grep -oP 'last_checked: \K[^\n]+' || echo "")
-  # Compare with 24h threshold...
-  # If stale or missing, proceed to refresh
-fi
-```
-
-### If Cache is Fresh
-
-Skip to bootstrap output. No need to re-fetch upstream data.
-
-```bash
-bd update "$CACHE_BEAD" --notes "last_checked: $(date -Iseconds)"
-```
-
----
-
-## Section 3: Refresh Research (if stale or missing)
+## Section 2: Refresh Research
 
 ### Fetch CONTRIBUTING.md
 
@@ -177,7 +132,7 @@ fi
 
 ---
 
-## Section 4: Related Upstream Discovery
+## Section 3: Related Upstream Discovery
 
 Parse the upstream README for dependencies or related projects:
 
@@ -189,13 +144,13 @@ README=$(gh api repos/$ORG_REPO/contents/README.md --jq '.content' 2>/dev/null |
 # Parse for github.com links or org/repo patterns
 ```
 
-Present any related upstreams found for user review (see gate-bootstrap in SKILL.md).
+Present any related upstreams found for user review (see project-report section below).
 
 ---
 
-## Section 5: Bootstrap Output
+## Section 4: Project Research Output
 
-After bootstrap completes, report:
+After project research completes, report:
 
 ```
 Upstream: steveyegge/beads
@@ -203,52 +158,49 @@ Research cache: hq-abc123 (refreshed 2h ago | refreshed now)
 Guidelines: CONTRIBUTING.md found
 ```
 
-Then advance:
-
-```bash
-bd close <bootstrap-step-id> --continue
-```
+Then continue to project-report (step 5) if new data was found, otherwise skip to issue-research (step 6).
 
 ---
 
-## Section 6: Context Output Format
+## Section 5: `project-report` (Research Checkpoint)
 
-When presenting context (at `context` step), use the cached research:
+**CHECKPOINT** - Only present if new data was found.
+
+When cache is fresh or no new data was found, this step is auto-closed. Only present when there's new research to review.
+
+```
+┌────────────────────────────────────────────────────────────────────┐
+│  🔍 CHECKPOINT: Contribution Research                              │
+└────────────────────────────────────────────────────────────────────┘
+
+Upstream: steveyegge/gastown
+Guidelines: Found CONTRIBUTING.md
+Open issues: 12 | Open PRs: 3
+
+## Research Summary
+- Commit style: present tense, max 72 chars
+- Testing: go test ./...
+- PR requires: description, test plan
+
+## Related Projects Detected
+From README:
+  - steveyegge/beads (mentioned in dependencies)
+
+Track these for additional context?
+```
+
+### On Response
+
+If user wants to add related upstreams, fetch research for them first. Then continue to issue-research (step 6 in Starting Tackle).
+
+---
+
+## Section 6: Using Cached Research
+
+When planning implementation, reference the cached research:
 
 ```bash
 RESEARCH=$(bd show "$CACHE_BEAD" --json | jq -r '.[0].description')
 ```
 
-Present as **context only**, never suggestions:
-
-```
-## Upstream Context for <issue-id>
-
-**Fork Status:**
-Your fork is 12 commits behind upstream/main.
-
-**Guidelines (from CONTRIBUTING.md):**
-- Commit format: present tense, max 72 chars
-- Testing: `go test ./...`
-- PR requires: description, test plan
-
-This is context to inform your approach.
-You are working on YOUR assigned issue: <issue-id>
-```
-
-## Never Do This
-
-```
-## Recommended Issues  <-- NEVER
-- #1234 looks like a good starting point!  <-- NEVER
-- Consider working on #1230 first  <-- NEVER
-```
-
----
-
-## Force Refresh
-
-When `/tackle --refresh` is used:
-1. Find cache bead via config or label search
-2. Re-fetch all upstream data
-3. Update cache bead with fresh research
+Use this to inform your approach - guidelines, conventions, patterns.

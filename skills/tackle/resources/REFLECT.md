@@ -1,4 +1,4 @@
-# Retrospective Phase
+# Reflect Phase
 
 Reflect on what went wrong with the tackle process and improve the skill.
 
@@ -6,11 +6,11 @@ Reflect on what went wrong with the tackle process and improve the skill.
 
 This step runs **immediately after PR submission** (not after merge). Capture friction and errors while fresh.
 
-**CRITICAL**: The retro step is how tackle learns and improves. Skipping evaluation or writing "Clean run" without review loses valuable learning data. Take this step seriously.
+**CRITICAL**: The reflect step is how tackle learns and improves. Skipping evaluation or writing "Clean run" without review loses valuable learning data. Take this step seriously.
 
 ---
 
-## Retro Checklist (EVALUATE BEFORE CLOSING)
+## Reflect Checklist (EVALUATE BEFORE CLOSING)
 
 **Do not write "Clean run" until you've reviewed each category:**
 
@@ -32,7 +32,7 @@ This step runs **immediately after PR submission** (not after merge). Capture fr
 - Did I need user correction?
 
 ### 4. Molecule Cleanup?
-- Are ALL steps closed (not just retro)?
+- Are ALL steps closed (not just reflect)?
 - Is the ROOT MOLECULE closed?
 - Did I record issues in close_reason for pattern detection?
 
@@ -68,11 +68,11 @@ This step runs **immediately after PR submission** (not after merge). Capture fr
 
 ## Pattern Detection via Molecule History
 
-Tackle molecules are labeled `formula:tackle` for querying. Use past molecules to detect patterns:
+Tackle molecules are labeled `formula:tackle` for querying. Molecules with friction are also labeled `tackle:friction`. Use past molecules to detect patterns:
 
 ```bash
-# Find closed tackle molecules
-bd list --all --label "formula:tackle" --json | jq '
+# Find closed tackle molecules that had friction (excludes clean runs)
+bd list --all --label "formula:tackle" --label "tackle:friction" --json | jq '
   .[] | select(.status == "closed") |
   {id, close_reason, notes}
 '
@@ -109,10 +109,9 @@ Subjective issues that need validation:
 
 ## Recording Issues
 
-When closing the retro step, include any issues in the close_reason:
+When there are issues, record them in the close_reason using this format:
 
-```bash
-bd close <retro-step-id> --reason "$(cat <<'EOF'
+```
 Issues found:
 - ERROR: Used --silent flag (doesn't exist, should be -q)
 - FRICTION: Molecule attachment instructions unclear
@@ -120,8 +119,6 @@ Issues found:
 Clean areas:
 - Gate flow worked smoothly
 - Validation steps clear
-EOF
-)"
 ```
 
 This becomes queryable history for pattern detection.
@@ -150,23 +147,31 @@ Rationale: <why this helps>
 
 Present for review. Only apply with explicit approval.
 
-## Completing Retro
+## Completing Reflect
 
 ### If the run was smooth
 
 ```bash
-bd close <retro-step-id> --reason "Clean run - no issues"
+bd close <reflect-step-id> --reason "Clean run - no issues"
 ```
 
 ### If there were issues
 
+Add the friction label (for pattern detection) and close with the format from "Recording Issues":
+
 ```bash
-bd close <retro-step-id> --reason "Logged: <brief summary of issues>"
+bd update <molecule-id> --add-label "tackle:friction"
+bd close <reflect-step-id> --reason "$(cat <<'EOF'
+Issues found:
+- <issue 1>
+- <issue 2>
+EOF
+)"
 ```
 
 ### IMPORTANT: Close the Root Molecule
 
-After closing retro, the root molecule should auto-close. Verify:
+After closing reflect, the root molecule should auto-close. Verify:
 
 ```bash
 bd --no-daemon mol current
@@ -187,7 +192,7 @@ bd close <molecule-id> --reason "Tackle complete - PR submitted"
 ## Example
 
 ```
-## Tackle Retrospective: gt-mol-xxxxx
+## Tackle Reflect: gt-mol-xxxxx
 
 Reviewed tackle process for worktree health check PR.
 
