@@ -458,6 +458,12 @@ Plan for <issue-id>: <issue-title>
   - Conflicting PRs: <none | list>
   - Hot areas: <none | list with reasons>
 
+## Testing
+<one of:>
+  - Recommend: <specific test to add or modify>
+  - Existing coverage sufficient: <brief justification>
+  - N/A: <reason, e.g., "documentation-only change">
+
 Approve to continue, or request changes.
 ```
 
