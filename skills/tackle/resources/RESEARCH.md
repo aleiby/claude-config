@@ -40,7 +40,7 @@ bd ready                    # Find next executable step
 
 Resume from the current step. Skip the rest of this setup flow.
 
-If no molecule attached, continue with new tackle flow below.
+If no molecule attached, continue with fresh tackle setup below.
 
 ---
 
