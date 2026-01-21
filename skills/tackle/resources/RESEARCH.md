@@ -6,38 +6,7 @@ This resource handles **project-level research** - information about the upstrea
 
 ---
 
-## Section 1: First-Time Setup
-
-### Install Formula
-
-Always sync the formula from the skill to ensure it's up to date.
-
-```bash
-FORMULA_SRC="<skill-dir>/resources/tackle.formula.toml"
-
-# Follow redirect if present to find shared .beads location
-if [ -f ".beads/redirect" ]; then
-  BEADS_DIR=$(cat .beads/redirect)
-  BEADS_DIR=$(cd .beads && cd "$BEADS_DIR" && pwd)
-else
-  BEADS_DIR=".beads"
-fi
-
-FORMULA_DST="$BEADS_DIR/formulas/tackle.formula.toml"
-
-# Always copy to ensure formula is current
-mkdir -p "$BEADS_DIR/formulas"
-cp "$FORMULA_SRC" "$FORMULA_DST"
-
-# Add to .gitignore if not already present
-if ! grep -q "formulas/tackle.formula.toml" "$BEADS_DIR/.gitignore" 2>/dev/null; then
-  echo "formulas/tackle.formula.toml" >> "$BEADS_DIR/.gitignore"
-fi
-```
-
----
-
-## Section 2: Refresh Research
+## Section 1: Refresh Research
 
 ### Fetch CONTRIBUTING.md
 
@@ -123,7 +92,7 @@ fi
 
 ---
 
-## Section 3: Related Upstream Discovery
+## Section 2: Related Upstream Discovery
 
 Parse the upstream README for dependencies or related projects:
 
@@ -135,11 +104,11 @@ README=$(gh api repos/$ORG_REPO/contents/README.md --jq '.content' 2>/dev/null |
 # Parse for github.com links or org/repo patterns
 ```
 
-Present any related upstreams found for user review (see Section 5: Project Report below).
+Present any related upstreams found for user review (see Section 4: Project Report below).
 
 ---
 
-## Section 4: Project Research Output
+## Section 3: Project Research Output
 
 After project research completes, report:
 
@@ -149,11 +118,11 @@ Research cache: hq-abc123 (refreshed 2h ago | refreshed now)
 Guidelines: CONTRIBUTING.md found
 ```
 
-Then continue to Project Report (Section 5) if new data was found, otherwise skip to Issue Research (step 6 in Starting Tackle).
+Then continue to Project Report (Section 4) if new data was found, otherwise skip to Issue Research (step 6 in Starting Tackle).
 
 ---
 
-## Section 5: Project Report
+## Section 4: Project Report
 
 **CHECKPOINT** - Only present if new data was found.
 
@@ -186,7 +155,7 @@ If user wants to add related upstreams, fetch research for them first. Then cont
 
 ---
 
-## Section 6: Using Cached Research
+## Section 5: Using Cached Research
 
 When planning implementation, reference the cached research:
 

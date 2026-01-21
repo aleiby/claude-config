@@ -291,7 +291,27 @@ Options:
 
 Accept natural language responses. If user chooses to skip/wait, do not create molecule.
 
-#### 8. Create Molecule (only if proceeding)
+#### 8. Sync Formula
+
+Before creating the molecule, ensure the formula is current:
+
+```bash
+FORMULA_SRC="/home/aleiby/.claude/skills/tackle/resources/tackle.formula.toml"
+
+# Follow redirect if present to find shared .beads location
+if [ -f ".beads/redirect" ]; then
+  BEADS_DIR=$(cat .beads/redirect)
+  BEADS_DIR=$(cd .beads && cd "$BEADS_DIR" && pwd)
+else
+  BEADS_DIR=".beads"
+fi
+
+# Always copy to ensure formula is current
+mkdir -p "$BEADS_DIR/formulas"
+cp "$FORMULA_SRC" "$BEADS_DIR/formulas/tackle.formula.toml"
+```
+
+#### 9. Create Molecule (only if proceeding)
 
 ```bash
 # Create molecule and capture ID (requires --no-daemon)
