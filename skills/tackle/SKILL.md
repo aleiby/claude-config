@@ -568,13 +568,44 @@ Approve to mark PR ready for maintainer review.
 
 ### On Approve
 
-Store PR info in the gate bead before closing (for recovery after compaction):
+**First, check CI status** before marking PR ready:
+
+```bash
+# Check CI status on the draft PR
+CI_STATUS=$(gh pr checks $PR_NUMBER --repo $ORG_REPO --json state,name --jq '.')
+
+# Parse overall status
+PENDING=$(echo "$CI_STATUS" | jq '[.[] | select(.state == "PENDING")] | length')
+FAILED=$(echo "$CI_STATUS" | jq '[.[] | select(.state == "FAILURE")] | length')
+
+if [ "$PENDING" -gt 0 ]; then
+  echo "CI still running ($PENDING checks pending). Waiting..."
+  gh pr checks $PR_NUMBER --repo $ORG_REPO --watch
+  # Re-check after completion
+  FAILED=$(gh pr checks $PR_NUMBER --repo $ORG_REPO --json state --jq '[.[] | select(.state == "FAILURE")] | length')
+fi
+
+if [ "$FAILED" -gt 0 ]; then
+  echo "CI failed ($FAILED checks). Review failures before proceeding."
+  gh pr checks $PR_NUMBER --repo $ORG_REPO
+fi
+```
+
+**If CI failed**, present options:
+```
+CI checks failed. Options:
+  - Fix failures and re-push (returns to implement phase)
+  - Submit anyway (maintainer may reject)
+```
+
+**If CI passed** (or user chooses to submit anyway), store PR info and proceed:
 
 ```bash
 GATE_BEAD=$(bd --no-daemon mol current --json | jq -r '.current_step.id')
 
 bd update "$GATE_BEAD" --notes="pr_number: $PR_NUMBER
 pr_url: $PR_URL
+ci_status: passed
 approved_at: $(date -Iseconds)"
 
 bd close "$GATE_BEAD" --reason "Approved - PR #$PR_NUMBER ready for review" --continue
