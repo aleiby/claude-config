@@ -30,13 +30,16 @@ Loading unnecessary resources wastes context and may cause confusion.
 
 | Current Step | Load Resource |
 |--------------|---------------|
-| bootstrap, gate-bootstrap | RESEARCH.md |
-| context, existing-pr-check | RESEARCH.md |
+| bootstrap | RESEARCH.md (project-level research) |
+| gate-bootstrap | (gate details below) |
+| context, existing-pr-check | (handled in Starting Tackle above) |
 | plan, branch, implement | IMPLEMENT.md |
 | validate | VALIDATION.md |
 | gate-plan, gate-submit | (gate details below) |
 | submit, record | SUBMIT.md |
 | retro | REFLECT.md |
+
+**Note:** Issue-specific research (is it already solved?) happens in SKILL.md before molecule creation. RESEARCH.md is only for project-level research (CONTRIBUTING.md, guidelines, patterns) which is cached and refreshed at most daily.
 
 Check current step with `bd --no-daemon mol current`, then load ONLY the matching resource.
 
@@ -97,26 +100,118 @@ First, parse what the user wants:
 | `/tackle --refresh` | Force refresh upstream research |
 | `/tackle --help` | Show Quick Reference to user |
 
-### Starting New Tackle
+### Starting Tackle
 
 When starting `/tackle <issue>`:
 
-1. **First-time setup**: Install formula if not present (see RESEARCH.md)
-2. **Check for attached molecule**: `gt mol status` shows attached molecule if present
-3. **If attached**: Resume with `bd --no-daemon mol current`, `bd ready`
-4. **If new**: Create and attach molecule:
-   ```bash
-   # Create molecule (note: requires --no-daemon)
-   bd --no-daemon mol pour tackle --var issue=<issue-id>
-   # Returns molecule ID like gt-mol-xxxxx
+#### 1. Check for Existing Molecule
 
-   # Add formula label for pattern detection in retro phase
-   bd update <molecule-id> --add-label "formula:tackle"
+```bash
+gt mol status
+```
 
-   # Attach molecule (auto-detects your agent bead from cwd)
-   gt mol attach <molecule-id>
-   # If "not pinned" error: see molecule workflow section above
-   ```
+If attached, resume from current step:
+```bash
+bd --no-daemon mol current
+bd ready
+```
+
+If no molecule attached, continue with fresh tackle setup below.
+
+#### 2. Resolve Issue
+
+The user's input may be an issue ID, partial match, or description.
+
+```bash
+# Try direct lookup
+bd show <input> 2>/dev/null
+```
+
+If not found, search for matches:
+```bash
+bd list --status=open --json | jq -r '.[] | "\(.id): \(.title)"'
+```
+
+If no matches, offer to create a bead for the work.
+
+#### 3. Detect Upstream
+
+```bash
+UPSTREAM_URL=$(git remote -v | grep -E '^upstream\s' | head -1 | awk '{print $2}')
+[ -z "$UPSTREAM_URL" ] && UPSTREAM_URL=$(git remote -v | grep -E '^fork-source\s' | head -1 | awk '{print $2}')
+[ -z "$UPSTREAM_URL" ] && UPSTREAM_URL=$(git remote -v | grep -E '^origin\s' | head -1 | awk '{print $2}')
+
+ORG_REPO=$(echo "$UPSTREAM_URL" | sed -E 's#.*github.com[:/]([^/]+/[^/]+)(\.git)?$#\1#')
+```
+
+#### 4. Issue-Specific Research (before molecule creation)
+
+Check if issue is already addressed before creating a molecule:
+
+**Check if upstream issue is closed:**
+```bash
+UPSTREAM_ISSUE=$(bd show <issue-id> --json | jq -r '.[0].external_ref // empty' | grep -oP 'issue:\K\d+')
+if [ -n "$UPSTREAM_ISSUE" ]; then
+  ISSUE_STATE=$(gh api repos/$ORG_REPO/issues/$UPSTREAM_ISSUE --jq '.state')
+fi
+```
+
+**Check for linked PRs:**
+```bash
+gh api repos/$ORG_REPO/issues/$UPSTREAM_ISSUE/timeline \
+  --jq '.[] | select(.event == "cross-referenced") | .source.issue | {number, title, state}'
+```
+
+**Check own open PRs:**
+```bash
+gh pr list --repo $ORG_REPO --author @me --json number,title,headRefName,statusCheckRollup,mergeable
+```
+
+**Check for claims:**
+```bash
+gh api repos/$ORG_REPO/issues/$UPSTREAM_ISSUE/comments --jq '
+  .[-10:] | .[] | select(.body | test("working on|taking this|I.ll (work|tackle|fix)"; "i"))
+  | {user: .user.login, date: .created_at, body: .body[:100]}'
+```
+
+#### 5. Existing Work Decision
+
+If existing work found, present options:
+
+```
+Found existing work for this issue:
+  - Upstream issue #123 is CLOSED
+  - PR #456 already addresses this
+  - You have PR #789 open (CI failing)
+
+Options:
+  - Skip tackle (close local issue)
+  - Wait for existing PR to merge
+  - Fix your existing PR
+  - Proceed anyway
+```
+
+Accept natural language responses. If user chooses to skip/wait, do not create molecule.
+
+#### 6. Create Molecule (only if proceeding)
+
+```bash
+# Create molecule (requires --no-daemon)
+bd --no-daemon mol pour tackle --var issue=<issue-id>
+# Returns molecule ID like gt-mol-xxxxx
+
+# Add formula label for pattern detection
+bd update <molecule-id> --add-label "formula:tackle"
+
+# Attach molecule
+gt mol attach <molecule-id>
+# If "not pinned" error: see molecule workflow section above
+```
+
+**Claim issue (optional):**
+```bash
+gh issue comment $UPSTREAM_ISSUE --repo $ORG_REPO --body "I'd like to work on this. I'll submit a PR soon."
+```
 
 ### Phase Execution
 
@@ -124,10 +219,10 @@ Based on current step (from `bd --no-daemon mol current`), load the appropriate 
 
 | Step ID | Load Resource | Then |
 |---------|---------------|------|
-| `bootstrap` | `resources/RESEARCH.md` | Check/refresh upstream research |
+| `bootstrap` | `resources/RESEARCH.md` | Check/refresh project-level research cache |
 | `gate-bootstrap` | (see below) | **CHECKPOINT** - Present research summary |
-| `context` | `resources/RESEARCH.md` | Search upstream, check for existing PRs |
-| `existing-pr-check` | `resources/RESEARCH.md` | Present options if PR found |
+| `context` | (none - use cached research) | Present context output |
+| `existing-pr-check` | (none - already handled) | Skip if no PR found pre-molecule |
 | `plan` | `resources/IMPLEMENT.md` | Create implementation plan |
 | `gate-plan` | (see below) | **STOP** - Wait for approval |
 | `branch` | `resources/IMPLEMENT.md` | Create clean branch |
