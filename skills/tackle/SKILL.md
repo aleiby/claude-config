@@ -23,6 +23,25 @@ user-invocable: true
 
 When user asks for help, show this Quick Reference section.
 
+## Resumption Protocol (ALWAYS FIRST)
+
+After ANY interruption (compaction, new session, handoff, `/tackle --status`):
+
+```bash
+bd --no-daemon mol current   # 1. Verify molecule state
+gt mol status                # 2. Verify hook attachment
+# If detached: gt mol attach <molecule-id>
+# 3. Claim current step if needed (see below)
+```
+
+**NEVER trust summary alone. State is truth.**
+
+If `bd mol current` shows a step but you're not the assignee:
+```bash
+STEP_ID=$(bd ready --parent <molecule-id> --json | jq -r '.[0].id')
+bd update "$STEP_ID" --status=in_progress --assignee="$BD_ACTOR"
+```
+
 ## Resource Loading (Progressive Disclosure)
 
 **DO NOT load all resource files.** Load only what's needed for your current step.
