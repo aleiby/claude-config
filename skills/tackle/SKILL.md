@@ -214,8 +214,8 @@ User can add more related repos to track, or continue.
 This is a housekeeping gate - you must check ALL issues with `pr-submitted` label, not just the one you're about to tackle.
 
 ```bash
-# Find issues awaiting PR outcomes
-PENDING_PRS=$(bd list --label=pr-submitted --status=in_progress --json 2>/dev/null | jq -r '.[] | .id' )
+# Find issues awaiting PR outcomes (label is removed when outcome known)
+PENDING_PRS=$(bd list --label=pr-submitted --json 2>/dev/null | jq -r '.[] | .id')
 
 CHECKED=0
 for ISSUE_ID in $PENDING_PRS; do
