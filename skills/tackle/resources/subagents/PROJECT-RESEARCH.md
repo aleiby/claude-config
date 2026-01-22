@@ -6,11 +6,25 @@ You are a research sub-agent gathering project-level information about an upstre
 
 ## Required Inputs (passed via prompt)
 
+The main agent passes inputs as literal values in YAML format:
+
 ```yaml
 inputs:
   org_repo: "<org>/<repo>"           # Upstream repository
   cache_bead: "<bead-id|null>"       # Existing cache bead to update (or null to create)
 ```
+
+## Variable Setup (REQUIRED FIRST)
+
+**Sub-agents do NOT inherit environment variables.** Extract the literal values from the inputs above and set shell variables before running any commands:
+
+```bash
+# Set these from the inputs provided in the prompt (replace angle-bracket placeholders with actual values)
+ORG_REPO="<org>/<repo>"              # e.g., "steveyegge/beads"
+CACHE_BEAD="<bead-id>"               # e.g., "hq-5678" (or empty string if null)
+```
+
+Then proceed with the research steps below.
 
 ## Research Steps
 

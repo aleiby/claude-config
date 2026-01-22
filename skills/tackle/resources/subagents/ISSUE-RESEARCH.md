@@ -4,6 +4,8 @@ You are a research sub-agent checking if an issue already has existing work upst
 
 ## Required Inputs (passed via prompt)
 
+The main agent passes inputs as literal values in YAML format:
+
 ```yaml
 inputs:
   org_repo: "<org>/<repo>"           # Primary upstream
@@ -12,6 +14,20 @@ inputs:
   upstream_issue: <number|null>      # Upstream issue number if known
   search_terms: ["keyword1", ...]    # Keywords to search
 ```
+
+## Variable Setup (REQUIRED FIRST)
+
+**Sub-agents do NOT inherit environment variables.** Extract the literal values from the inputs above and set shell variables before running any commands:
+
+```bash
+# Set these from the inputs provided in the prompt (replace angle-bracket placeholders with actual values)
+ORG_REPO="<org>/<repo>"              # e.g., "steveyegge/beads"
+UPSTREAM_ISSUE="<number>"            # e.g., "123" (or leave unset if null)
+ISSUE_ID="<local-issue-id>"          # e.g., "hq-1234"
+SEARCH_TERMS="<space-separated>"     # e.g., "doctor indent"
+```
+
+Then proceed with the research steps below.
 
 ## Research Steps
 

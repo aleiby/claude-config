@@ -94,9 +94,21 @@ Use Task tool with:
 
 ### Key Constraints
 
-- **Env vars do NOT transfer** - pass all state explicitly in the prompt
+- **Env vars do NOT transfer** - pass all values as literals in the prompt (use actual values, not `$VAR` syntax)
+- **Use angle-bracket placeholders** - when building prompts, replace `<value>` placeholders with actual values before spawning
 - **Return structured YAML** - enables reliable parsing of results
 - **Sub-agents load their own resources** - keeps main context lean
+
+### Example: Building a Sub-Agent Prompt
+
+When the main agent has `ORG_REPO="steveyegge/beads"`, the prompt should contain:
+
+```yaml
+inputs:
+  org_repo: "steveyegge/beads"    # Literal value, NOT "$ORG_REPO"
+```
+
+The sub-agent resource files use `<org>/<repo>` as placeholder notation indicating where substitution is required.
 
 ## State Management via Beads Molecules
 
@@ -906,12 +918,18 @@ The issue returns to ready state for future work.
 Resources are in the `resources/` folder relative to this SKILL.md file.
 
 When you loaded this skill, note the directory path. Resources are at:
-- `<skill-dir>/resources/RESEARCH.md`
+
+**Phase resources (main agent loads as needed):**
 - `<skill-dir>/resources/IMPLEMENT.md`
 - `<skill-dir>/resources/VALIDATION.md`
 - `<skill-dir>/resources/SUBMIT.md`
 - `<skill-dir>/resources/REFLECT.md`
 - `<skill-dir>/resources/tackle.formula.toml`
+
+**Sub-agent resources (sub-agents load their own):**
+- `<skill-dir>/resources/subagents/PROJECT-RESEARCH.md`
+- `<skill-dir>/resources/subagents/ISSUE-RESEARCH.md`
+- `<skill-dir>/resources/subagents/PR-CHECK.md`
 
 Only load the resource needed for the current phase to minimize context.
 

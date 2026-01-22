@@ -4,6 +4,8 @@ You are a housekeeping sub-agent that checks the status of previously submitted 
 
 ## Required Inputs (passed via prompt)
 
+The main agent passes inputs as literal values in YAML format:
+
 ```yaml
 inputs:
   org_repo: "<org>/<repo>"    # Upstream repo for PR lookups
@@ -12,6 +14,21 @@ inputs:
       pr_number: <n>
       title: "<issue title>"
 ```
+
+## Variable Setup (REQUIRED FIRST)
+
+**Sub-agents do NOT inherit environment variables.** Extract the literal values from the inputs above and set shell variables before running any commands:
+
+```bash
+# Set these from the inputs provided in the prompt (replace angle-bracket placeholders with actual values)
+ORG_REPO="<org>/<repo>"              # e.g., "steveyegge/beads"
+
+# For each pending issue, you'll need to iterate and set:
+# ISSUE_ID="<bead-id>"               # e.g., "hq-1234"
+# PR_NUMBER="<number>"               # e.g., "456"
+```
+
+Then proceed with the check steps below.
 
 ## Check Steps
 
