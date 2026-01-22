@@ -228,8 +228,8 @@ PR_STATE=$(gh pr view <pr-number> --repo $ORG_REPO --json state --jq '.state')
 ```
 
 - If `MERGED`: `bd close <issue-id> --reason "PR merged"` (label auto-removed on close)
-- If `CLOSED`: `bd update <issue-id> --remove-label pr-submitted --notes="PR rejected/closed"` to retry, or `bd close <issue-id> --reason "PR rejected"` if not worth retrying
-- If `OPEN`: leave as-is (still awaiting review)
+- If `CLOSED`: `bd update <issue-id> --status=open --remove-label pr-submitted --notes="PR rejected/closed"` to retry, or `bd close <issue-id> --reason "PR rejected"` if not worth retrying
+- If `OPEN`: leave as-is (in_progress with pr-submitted label, awaiting review)
 
 **Then, check if the current issue is already addressed.**
 
@@ -326,6 +326,9 @@ bd update "$MOL_ID" --add-label "formula:tackle"
 # Attach molecule
 gt mol attach "$MOL_ID"
 # If "not pinned" error: see molecule workflow section above
+
+# Mark the source issue as in_progress (keeps bd ready clean)
+bd update <issue-id> --status=in_progress
 ```
 
 ### Phase Execution
