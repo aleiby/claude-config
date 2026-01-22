@@ -419,15 +419,19 @@ Load `resources/RESEARCH.md` for full refresh instructions. This discovers relat
 
 **CRITICAL SAFETY RULES - READ THIS SECTION COMPLETELY**
 
-### Approval Detection
+### Response Detection
 
 Accept natural language **approval**:
 - "approve", "approved", "proceed", "continue"
 - "yes", "lgtm", "looks good", "go ahead"
 - "submit", "ship it" (at gate-submit only)
 
-Accept natural language **rejection**:
-- "reject", "no", "stop"
+Accept natural language **explain** (gate-plan only):
+- "explain", "why", "rationale", "reasoning"
+- "tell me more", "justify", "alternatives"
+
+Accept natural language **decline**:
+- "decline", "reject", "no", "stop"
 - "wait", "revise", "hold", "change"
 
 ### Gate Rules (NEVER VIOLATE)
@@ -443,6 +447,16 @@ Accept natural language **rejection**:
 ## Gate 1: `gate-plan` (Plan Review)
 
 **MANDATORY STOP** - Present the plan, then wait for explicit user approval before proceeding.
+
+### Pre-Gate Preparation (Internal)
+
+Before presenting the checkpoint, prepare internally (but don't show unless asked):
+
+1. **Why this approach over alternatives** - What other solutions were considered? Why were they rejected?
+2. **Key tradeoffs** - What are we accepting? Why is it acceptable?
+3. **Root cause confidence** - How does this address the actual problem, not just symptoms?
+
+This preparation ensures you've thought through the rationale. Only present it if the user asks to "explain".
 
 ### Show to User
 
@@ -475,7 +489,10 @@ Plan for <issue-id>: <issue-title>
   - Will claim: issue #<n> is open, unclaimed, on upstream
   - Skip: <reason, e.g., "internal-only issue", "already assigned to me", "I filed this issue">
 
-Approve to continue, or request changes.
+Options:
+  - Approve (continue to implementation)
+  - Explain (show rationale for this approach)
+  - Decline (request changes)
 ```
 
 ### On Approve
@@ -493,7 +510,31 @@ gh issue comment $UPSTREAM_ISSUE --repo $ORG_REPO --body "I'd like to work on th
 
 Proceed to branch creation.
 
-### On Reject
+### On Explain
+
+Present the rationale you prepared internally:
+
+```
+## Rationale
+
+**Why this approach:**
+<explanation of the chosen solution>
+
+**Alternatives considered:**
+<what was rejected and why>
+
+**Tradeoffs:**
+<what we're accepting and why it's acceptable>
+
+---
+Options:
+  - Approve (continue to implementation)
+  - Decline (request changes)
+```
+
+After presenting rationale, wait for approve or decline.
+
+### On Decline
 
 ```
 What would you like to change about the plan?
@@ -680,11 +721,12 @@ If user asks for help or seems confused at a gate:
 You're at the <gate-name> gate.
 
 This is a mandatory approval checkpoint. The skill will not proceed
-until you explicitly approve or reject.
+until you explicitly approve or decline.
 
 Respond naturally:
   "yes", "approve", "looks good" -> approve
-  "no", "wait", "revise" -> reject
+  "why", "explain", "rationale" -> explain (gate-plan only)
+  "no", "wait", "revise"        -> decline
 ```
 
 ## Agent Safety
