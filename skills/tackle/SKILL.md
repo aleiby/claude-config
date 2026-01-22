@@ -329,6 +329,12 @@ gt hook | grep -q "$MOL_ID" || echo "WARNING: Hook not set - check gt mol attach
 
 # Mark the source issue as in_progress (keeps bd ready clean)
 bd update <issue-id> --status=in_progress
+
+# CRITICAL: Claim first step with assignee so bd mol current works
+FIRST_STEP=$(bd ready --parent "$MOL_ID" --json 2>/dev/null | jq -r '.[0].id // empty')
+if [ -n "$FIRST_STEP" ]; then
+  bd update "$FIRST_STEP" --status=in_progress --assignee "$BD_ACTOR"
+fi
 ```
 
 ### Phase Execution
@@ -353,9 +359,15 @@ See Resource Loading table above for which resource file to load.
 After completing work for a step:
 ```bash
 bd close <step-id> --continue
+
+# CRITICAL: Set assignee so bd mol current can find you
+NEXT_STEP=$(bd ready --parent "$MOL_ID" --json 2>/dev/null | jq -r '.[0].id // empty')
+if [ -n "$NEXT_STEP" ]; then
+  bd update "$NEXT_STEP" --assignee "$BD_ACTOR"
+fi
 ```
 
-This marks the step complete and advances to the next step. Use `bd ready` to find it.
+This marks the step complete and advances to the next step. The assignee step is required because `bd mol current` filters by assignee - without it, the molecule becomes invisible.
 
 **Continue until reflect is complete and root molecule is closed.** Tackle is not done until then.
 
