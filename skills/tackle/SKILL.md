@@ -207,28 +207,45 @@ If project research found new data, present the checkpoint (see RESEARCH.md Sect
 
 User can add more related repos to track, or continue.
 
-#### 6. Issue Research
+#### 6. Check Pending PR Outcomes
 
-**First, check for pending PR outcomes:**
+**Before proceeding with any new work, clean up stale PR submissions.**
 
-Look for any local issues with `pr-submitted` label and check their PR outcomes:
+This is a housekeeping gate - you must check ALL issues with `pr-submitted` label, not just the one you're about to tackle.
 
 ```bash
 # Find issues awaiting PR outcomes
-PENDING_PRS=$(bd list --label=pr-submitted --json | jq -r '.[] | {id, title, notes}')
+PENDING_PRS=$(bd list --label=pr-submitted --status=in_progress --json 2>/dev/null | jq -r '.[] | .id' )
+
+CHECKED=0
+for ISSUE_ID in $PENDING_PRS; do
+  # Extract PR number from notes
+  PR_NUM=$(bd show "$ISSUE_ID" --json | jq -r '.[0].notes' | grep -oE 'PR #[0-9]+|pull/[0-9]+' | grep -oE '[0-9]+' | head -1)
+
+  if [ -n "$PR_NUM" ]; then
+    PR_STATE=$(gh pr view "$PR_NUM" --repo $ORG_REPO --json state --jq '.state' 2>/dev/null)
+    case "$PR_STATE" in
+      MERGED) bd close "$ISSUE_ID" --reason "PR #$PR_NUM merged" ;;
+      CLOSED) bd close "$ISSUE_ID" --reason "PR #$PR_NUM closed/rejected" ;;
+      OPEN) ;; # Still awaiting review
+    esac
+    CHECKED=$((CHECKED + 1))
+  fi
+done
+
+echo "Checked $CHECKED pending PR(s)"
 ```
 
-For each issue with `pr-submitted` label, extract the PR URL from notes and check its status:
-
-```bash
-PR_STATE=$(gh pr view <pr-number> --repo $ORG_REPO --json state --jq '.state')
+**Required output:** Report how many pending PRs were checked and any closures:
+```
+Checked 2 pending PR(s): gt-abc (merged→closed), gt-xyz (still open)
 ```
 
-- If `MERGED`: `bd close <issue-id> --reason "PR merged"` (label auto-removed on close)
-- If `CLOSED`: `bd update <issue-id> --status=open --remove-label pr-submitted --notes="PR rejected/closed"` to retry, or `bd close <issue-id> --reason "PR rejected"` if not worth retrying
-- If `OPEN`: leave as-is (in_progress with pr-submitted label, awaiting review)
+If no pending PRs: `Checked 0 pending PR(s)` - still report it explicitly.
 
-**Then, check if the current issue is already addressed.**
+#### 7. Issue Research
+
+**Check if the current issue is already addressed.**
 
 Check ALL tracked repos (main upstream + related repos from project research cache), not just the primary upstream.
 
@@ -266,7 +283,7 @@ done
 
 Review the recent comments and use judgment to determine if someone has claimed this issue (e.g., "I'll work on this", "taking this", "on it", etc.).
 
-#### 7. Existing Work Decision
+#### 8. Existing Work Decision
 
 If existing work found, present options:
 
@@ -285,7 +302,7 @@ Options:
 
 Accept natural language responses. If user chooses to skip/wait, do not create molecule.
 
-#### 8. Sync Formula
+#### 9. Sync Formula
 
 Before creating the molecule, install the formula to town-level (user formulas, not project-specific):
 
@@ -299,7 +316,7 @@ mkdir -p "$TOWN_FORMULAS"
 cp "$FORMULA_SRC" "$TOWN_FORMULAS/tackle.formula.toml"
 ```
 
-#### 9. Create Molecule (only if proceeding)
+#### 10. Create Molecule (only if proceeding)
 
 ```bash
 # Create molecule and capture ID (requires --no-daemon)
@@ -413,16 +430,16 @@ fi
 
 ### If Cache Fresh
 
-Skip loading RESEARCH.md. Update last_checked and continue to Issue Research (step 6 in Starting Tackle):
+Skip loading RESEARCH.md. Update last_checked and continue to Issue Research (step 7 in Starting Tackle):
 
 ```bash
 bd update "$CACHE_BEAD" --notes "last_checked: $(date -Iseconds)"
-# Continue to step 6 (Issue-Specific Research)
+# Continue to step 7 (Issue Research)
 ```
 
 ### If Cache Stale or Missing
 
-Load `resources/RESEARCH.md` for full refresh instructions. After refresh, present the Project Report (Section 5) if new data was found, then continue to Issue Research (step 6 in Starting Tackle).
+Load `resources/RESEARCH.md` for full refresh instructions. After refresh, present the Project Report (Section 5) if new data was found, then continue to Issue Research (step 7 in Starting Tackle).
 
 ### Force Refresh
 
