@@ -132,15 +132,15 @@ After PR submission:
 | **Issue/task bead** (hq-xxx) | After PR outcome | Work not done until fix is in upstream |
 
 - Closing the molecule does NOT close the issue
-- Issue gets `pr-submitted` label until PR outcome is known
-- PR outcomes are checked during Issue Research (step 6 in Starting Tackle) on future tackle invocations
+- Issue gets `pr-submitted` label and `deferred` status until PR outcome is known
+- PR outcomes are checked in step 6 (Check Pending PR Outcomes) on future tackle invocations
 
 This separation allows tracking issues through the full lifecycle, even if PRs need revisions or take time to merge.
 
 ### 1. Update Local Issue
 
 ```bash
-bd update <issue-id> --add-label pr-submitted --notes="PR submitted: $PR_URL"
+bd update <issue-id> --add-label pr-submitted --status=deferred --notes="PR submitted: $PR_URL"
 ```
 
 ### 2. Record for Learning
