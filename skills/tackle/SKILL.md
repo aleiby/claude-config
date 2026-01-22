@@ -41,9 +41,6 @@ Check current step with `bd --no-daemon mol current`, then use this lookup:
 
 ## State Management via Beads Molecules
 
-State persists via beads molecules. The tackle formula is shipped with this skill
-and installed to the town's `.beads/formulas/` directory.
-
 **Molecule workflow:**
 ```bash
 # Create molecule (requires --no-daemon)
@@ -197,7 +194,7 @@ ORG_REPO=$(bd show <molecule-id> --json | jq -r '.[0].vars.upstream // empty')
 
 #### 4. Project Research (cache check)
 
-Check if project-level research cache needs refreshing. This identifies the main upstream AND related repos (dependencies, etc.).
+Check if project-level research cache needs refreshing.
 
 See "Project Research Step" section below for cache check logic.
 
@@ -244,30 +241,27 @@ TRACKED_REPOS=$(yq '.tackle.tracked_repos[]' .beads/config.yaml 2>/dev/null)
 
 For each tracked repo, check:
 
-**Check if upstream issue is closed:**
 ```bash
 # Extract issue number from external_ref (portable regex, works on Linux and macOS)
 UPSTREAM_ISSUE=$(bd show <issue-id> --json | jq -r '.[0].external_ref // empty' | grep -oE 'issue:[0-9]+' | sed 's/issue://')
-if [ -n "$UPSTREAM_ISSUE" ]; then
-  ISSUE_STATE=$(gh api repos/$REPO/issues/$UPSTREAM_ISSUE --jq '.state')
-fi
-```
 
-**Check for linked PRs:**
-```bash
-gh api repos/$REPO/issues/$UPSTREAM_ISSUE/timeline \
-  --jq '.[] | select(.event == "cross-referenced") | .source.issue | {number, title, state}'
-```
+for REPO in $TRACKED_REPOS; do
+  # Check if upstream issue is closed
+  if [ -n "$UPSTREAM_ISSUE" ]; then
+    ISSUE_STATE=$(gh api repos/$REPO/issues/$UPSTREAM_ISSUE --jq '.state')
+  fi
 
-**Check own open PRs:**
-```bash
-gh pr list --repo $REPO --author @me --json number,title,headRefName,statusCheckRollup,mergeable
-```
+  # Check for linked PRs
+  gh api repos/$REPO/issues/$UPSTREAM_ISSUE/timeline \
+    --jq '.[] | select(.event == "cross-referenced") | .source.issue | {number, title, state}'
 
-**Check for claims:**
-```bash
-gh api repos/$REPO/issues/$UPSTREAM_ISSUE/comments --jq '
-  .[-10:] | .[] | {user: .user.login, date: .created_at, body: .body[:200]}'
+  # Check own open PRs
+  gh pr list --repo $REPO --author @me --json number,title,headRefName,statusCheckRollup,mergeable
+
+  # Check for claims
+  gh api repos/$REPO/issues/$UPSTREAM_ISSUE/comments --jq '
+    .[-10:] | .[] | {user: .user.login, date: .created_at, body: .body[:200]}'
+done
 ```
 
 Review the recent comments and use judgment to determine if someone has claimed this issue (e.g., "I'll work on this", "taking this", "on it", etc.).
@@ -323,9 +317,15 @@ fi
 # Add formula label for pattern detection
 bd update "$MOL_ID" --add-label "formula:tackle"
 
-# Attach molecule
+# Link source issue to molecule (bd show <issue> will show parent)
+bd update <issue-id> --parent "$MOL_ID"
+
+# Attach molecule to your hook
 gt mol attach "$MOL_ID"
 # If "not pinned" error: see molecule workflow section above
+
+# Verify hook is set (critical for session recovery)
+gt hook | grep -q "$MOL_ID" || echo "WARNING: Hook not set - check gt mol attach"
 
 # Mark the source issue as in_progress (keeps bd ready clean)
 bd update <issue-id> --status=in_progress
@@ -410,7 +410,7 @@ bd update "$CACHE_BEAD" --notes "last_checked: $(date -Iseconds)"
 
 ### If Cache Stale or Missing
 
-Load `resources/RESEARCH.md` for full refresh instructions. This discovers related repos (dependencies, etc.) and caches them. After refresh, present the Project Report (Section 5) if new data was found, then continue to Issue Research (step 6 in Starting Tackle).
+Load `resources/RESEARCH.md` for full refresh instructions. After refresh, present the Project Report (Section 5) if new data was found, then continue to Issue Research (step 6 in Starting Tackle).
 
 ### Force Refresh
 
@@ -459,7 +459,7 @@ Before presenting the checkpoint, prepare internally (but don't show unless aske
 2. **Key tradeoffs** - What are we accepting? Why is it acceptable?
 3. **Root cause confidence** - How does this address the actual problem, not just symptoms?
 
-This preparation ensures you've thought through the rationale. Only present it if the user asks to "explain".
+Only present this if the user asks to "explain".
 
 ### Show to User
 
@@ -587,7 +587,7 @@ else
 fi
 ```
 
-This ensures the session can end anywhere and resume cleanly. GitHub is the source of truth.
+GitHub is the source of truth for PR state.
 
 ### Show to User
 
@@ -744,8 +744,6 @@ If an agent reaches a gate without a human in the loop:
 3. Do not timeout and auto-approve
 4. Do not proceed on any heuristic
 
-This ensures no autonomous PR submission.
-
 ---
 
 ## Reflect
@@ -777,8 +775,6 @@ bd --no-daemon mol current   # Should show "No molecules in progress"
 gt mol status                # Should show "Nothing on hook"
 ```
 
-**Why close the root molecule?** Open molecules pollute future queries. Pattern detection depends on closed molecules with proper close_reason fields.
-
 ### Aborting (`/tackle --abort`)
 
 To abandon a tackle mid-workflow:
@@ -800,13 +796,6 @@ To abandon a tackle mid-workflow:
    ```
 
 The issue returns to ready state for future work.
-
-### Upstream Detection
-
-Priority for detecting upstream:
-1. Git remote named `upstream`
-2. Git remote named `fork-source`
-3. Origin (if not a fork)
 
 ## Resource Loading
 
@@ -854,3 +843,27 @@ Branch: <branch-name>
 2. Check for existing PR: `gh pr list --head <branch-name>`
 3. If PR exists, don't recreate - just continue from current step
 4. Load the appropriate resource for the current step
+
+### Compaction Recovery
+
+**CRITICAL**: If your hook is empty after compaction but you were working on a tackle:
+
+```bash
+# 1. Check for orphaned tackle molecules
+bd list --label=formula:tackle --status=open --json | jq '.[] | {id, title, status}'
+
+# 2. If molecule found, check its state
+bd show <molecule-id>
+
+# 3. Re-attach molecule to your hook
+gt mol attach <molecule-id>
+
+# 4. Verify and resume
+gt hook
+bd ready --parent <molecule-id>
+```
+
+You can also find your molecule via the source issue (linked via parent-child):
+```bash
+bd show <issue-id>
+```
