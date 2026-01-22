@@ -4,10 +4,22 @@ Verify implementation before submission.
 
 ## Setup
 
-Use upstream and default branch (see SKILL.md "Detect Upstream"):
+Use upstream and default branch. If resuming after session restart:
 ```bash
-# UPSTREAM_REF should already be set from earlier phases
-# If resuming, re-detect per SKILL.md upstream detection
+# Recover ORG_REPO from molecule vars
+MOL_ID=$(gt hook --json 2>/dev/null | jq -r '.molecule // empty')
+ORG_REPO=$(bd show "$MOL_ID" --json | jq -r '.[0].vars.upstream // empty')
+
+# If not in molecule, re-detect from git remote
+if [ -z "$ORG_REPO" ]; then
+  UPSTREAM_URL=$(git remote get-url upstream 2>/dev/null || git remote get-url fork-source 2>/dev/null || git remote get-url origin 2>/dev/null)
+  ORG_REPO=$(echo "$UPSTREAM_URL" | sed -E 's#.*github.com[:/]##' | sed 's/\.git$//')
+fi
+
+# Get remote name and default branch
+UPSTREAM_REMOTE=$(git remote -v | grep -E "github.com[:/]$ORG_REPO" | head -1 | awk '{print $1}')
+DEFAULT_BRANCH=$(gh api repos/$ORG_REPO --jq '.default_branch')
+UPSTREAM_REF="$UPSTREAM_REMOTE/$DEFAULT_BRANCH"
 ```
 
 ## Validation Checklist

@@ -139,20 +139,25 @@ This separation allows tracking issues through the full lifecycle, even if PRs n
 
 ### 1. Update Local Issue
 
-```bash
-bd update <issue-id> --add-label pr-submitted --status=deferred --notes="PR submitted: $PR_URL"
-```
+**Note:** `--notes` replaces existing notes (doesn't append). Include all info in one update:
 
-### 2. Record for Learning
-
-Update the issue with PR outcome tracking:
 ```bash
-bd update <issue-id> --notes="PR: $PR_URL, files: 3, lines: 45"
+# Count changed files and lines for the record
+FILES_CHANGED=$(git diff --stat $UPSTREAM_REF | tail -1 | grep -oE '[0-9]+ file' | grep -oE '[0-9]+')
+LINES_CHANGED=$(git diff --stat $UPSTREAM_REF | tail -1 | grep -oE '[0-9]+ insertion|[0-9]+ deletion' | grep -oE '[0-9]+' | paste -sd+ | bc)
+
+bd update <issue-id> \
+  --add-label pr-submitted \
+  --status=deferred \
+  --notes="PR: $PR_URL
+files: $FILES_CHANGED
+lines: ~$LINES_CHANGED
+submitted: $(date -Iseconds)"
 ```
 
 The molecule and issue history provide the audit trail for learning.
 
-### 3. Final Output
+### 2. Final Output
 
 ```
 ## PR Submitted
@@ -167,7 +172,7 @@ To check PR status later:
 
 **⚠️ WORKFLOW NOT COMPLETE** - You must still complete the reflect step before you are done.
 
-### 4. Advance to Reflect
+### 3. Advance to Reflect
 
 ```bash
 bd close <record-step-id> --continue

@@ -21,10 +21,12 @@ inputs:
 ```bash
 # Set these from the inputs provided in the prompt (replace angle-bracket placeholders with actual values)
 ORG_REPO="<org>/<repo>"              # e.g., "steveyegge/beads"
-CACHE_BEAD="<bead-id>"               # e.g., "hq-5678" (or empty string if null)
+CACHE_BEAD="<bead-id>"               # e.g., "hq-5678" (or empty string "" if null/missing)
 ```
 
 Then proceed with the research steps below.
+
+**Note on null handling:** If the input shows `cache_bead: null`, set `CACHE_BEAD=""` (empty string). Tests below use `-z` to check for empty.
 
 ## Research Steps
 
@@ -152,8 +154,8 @@ After gathering research, create or update the cache bead:
 NOW=$(date -Iseconds)
 RESEARCH_YAML="<the guidelines and patterns sections as YAML>"
 
-if [ -z "$CACHE_BEAD" ] || [ "$CACHE_BEAD" = "null" ]; then
-  # Create new cache bead
+if [ -z "$CACHE_BEAD" ]; then
+  # Create new cache bead (CACHE_BEAD was empty or not provided)
   CACHE_BEAD=$(bd create \
     --title "Upstream research: $ORG_REPO" \
     --type task \

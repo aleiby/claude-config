@@ -19,7 +19,7 @@ required = false
 id = "plan"
 title = "Create implementation plan"
 description = """
-See IMPLEMENT.md Plan Phase.
+See <skill-dir>/resources/IMPLEMENT.md Plan Phase.
 
 Create implementation plan based on:
 - Issue requirements
@@ -36,7 +36,7 @@ description = """
 
 Present plan to user. Wait for explicit approval.
 DO NOT PROCEED WITHOUT APPROVAL.
-See SKILL.md gate-plan section.
+See <skill-dir>/SKILL.md gate-plan section.
 """
 
 [[steps]]
@@ -44,12 +44,12 @@ id = "branch"
 title = "Create clean branch"
 needs = ["gate-plan"]
 description = """
-See IMPLEMENT.md Branch Phase.
+See <skill-dir>/resources/IMPLEMENT.md Branch Phase.
 
 git fetch $UPSTREAM_REMOTE
 git checkout -b <type>/<issue-id>-<description> $UPSTREAM_REF
 
-Variables from SKILL.md "Detect Upstream" section.
+Variables from <skill-dir>/SKILL.md "Detect Upstream" section.
 """
 
 [[steps]]
@@ -57,7 +57,7 @@ id = "implement"
 title = "Implement solution"
 needs = ["branch"]
 description = """
-See IMPLEMENT.md Implement Phase.
+See <skill-dir>/resources/IMPLEMENT.md Implement Phase.
 
 Implement following upstream conventions.
 Commit atomically with conventional commit messages.
@@ -68,7 +68,7 @@ id = "validate"
 title = "Validate implementation"
 needs = ["implement"]
 description = """
-See VALIDATION.md.
+See <skill-dir>/resources/VALIDATION.md.
 
 - Run tests
 - Check isolation (single concern)
@@ -94,7 +94,7 @@ Show full PR preview:
 
 Wait for explicit approval.
 DO NOT MARK PR READY WITHOUT APPROVAL.
-See SKILL.md gate-submit section.
+See <skill-dir>/SKILL.md gate-submit section.
 """
 
 [[steps]]
@@ -102,7 +102,7 @@ id = "submit"
 title = "Submit PR"
 needs = ["gate-submit"]
 description = """
-See SUBMIT.md.
+See <skill-dir>/resources/SUBMIT.md.
 
 Only after explicit approval:
 1. Mark draft PR as ready for review: gh pr ready
@@ -114,7 +114,7 @@ id = "record"
 title = "Record outcome"
 needs = ["submit"]
 description = """
-See SUBMIT.md Record Phase.
+See <skill-dir>/resources/SUBMIT.md Record Phase.
 
 Track PR URL and outcome for future learning.
 Update local issue with PR link.
@@ -125,7 +125,7 @@ id = "reflect"
 title = "Reflect"
 needs = ["record"]
 description = """
-See REFLECT.md.
+See <skill-dir>/resources/REFLECT.md.
 
 Reflect on issues tackle could help prevent in future runs.
 

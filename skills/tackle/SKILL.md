@@ -30,15 +30,16 @@ After ANY interruption (compaction, new session, handoff, `/tackle --status`):
 ```bash
 bd --no-daemon mol current   # 1. Verify molecule state
 gt mol status                # 2. Verify hook attachment
-# If detached: gt mol attach <molecule-id>
-# 3. Claim current step if needed (see below)
+# If detached, get MOL_ID from gt hook or bd mol current output, then:
+# gt mol attach "$MOL_ID"
 ```
 
 **NEVER trust summary alone. State is truth.**
 
 If `bd mol current` shows a step but you're not the assignee:
 ```bash
-STEP_ID=$(bd ready --parent <molecule-id> --json | jq -r '.[0].id')
+# MOL_ID from bd --no-daemon mol current output
+STEP_ID=$(bd ready --parent "$MOL_ID" --json | jq -r '.[0].id')
 bd update "$STEP_ID" --status=in_progress --assignee="$BD_ACTOR"
 ```
 
@@ -74,72 +75,37 @@ Check current step with `bd --no-daemon mol current`, then use this lookup:
 
 **Important:** Cache freshness checks stay in SKILL.md to avoid spawning sub-agents unnecessarily.
 
-### Sub-Agent Invocation Pattern
-
-```
-Use Task tool with:
-  subagent_type: "general-purpose"
-  prompt: |
-    Read resource file: ~/.claude/skills/tackle/resources/subagents/<TYPE>.md
-
-    Execute with inputs:
-    ```yaml
-    inputs:
-      org_repo: "<value>"
-      ...
-    ```
-
-    Return structured YAML as specified in the resource file.
-```
-
-### Key Constraints
-
-- **Env vars do NOT transfer** - pass all values as literals in the prompt (use actual values, not `$VAR` syntax)
-- **Use angle-bracket placeholders** - when building prompts, replace `<value>` placeholders with actual values before spawning
-- **Return structured YAML** - enables reliable parsing of results
-- **Sub-agents load their own resources** - keeps main context lean
-
-### Example: Building a Sub-Agent Prompt
-
-When the main agent has `ORG_REPO="steveyegge/beads"`, the prompt should contain:
-
-```yaml
-inputs:
-  org_repo: "steveyegge/beads"    # Literal value, NOT "$ORG_REPO"
-```
-
-The sub-agent resource files use `<org>/<repo>` as placeholder notation indicating where substitution is required.
-
 ## State Management via Beads Molecules
 
 **Molecule workflow:**
 ```bash
 # Create molecule (requires --no-daemon)
-bd --no-daemon mol pour tackle --var issue=<id>
-# Returns: Root issue: gt-mol-xxxxx
+# $ISSUE_ID set in Step 2, $ORG_REPO set in Step 3
+MOL_OUTPUT=$(bd --no-daemon mol pour tackle --var issue="$ISSUE_ID" --var upstream="$ORG_REPO" 2>&1)
+MOL_ID=$(echo "$MOL_OUTPUT" | grep "Root issue:" | sed 's/.*Root issue: //')
 
 # Add formula label for pattern detection in reflect phase
-bd update <molecule-id> --add-label "formula:tackle"
+bd update "$MOL_ID" --add-label "formula:tackle"
 
 # Attach molecule to track your work (auto-detects your agent bead from cwd)
-gt mol attach <molecule-id>
+gt mol attach "$MOL_ID"
 
 # If you get "not pinned" error, your agent bead needs setup first:
-#   1. Find your agent bead: bd list --type=agent --title-contains="<your-name>"
-#   2. Set to pinned: bd update <agent-bead-id> --status=pinned
-#   3. Retry: gt mol attach <molecule-id>
+#   AGENT_BEAD=$(bd list --type=agent --json | jq -r '.[0].id')
+#   bd update "$AGENT_BEAD" --status=pinned
+#   gt mol attach "$MOL_ID"  # retry
 ```
 
 **Check current state:**
 ```bash
 bd --no-daemon mol current   # Show active molecule and current step
 bd ready                     # Find next executable step
-bd show <step-id>            # View step details
+bd show "$STEP_ID"           # View step details (STEP_ID from bd ready output)
 ```
 
 **Advance through steps:**
 ```bash
-bd close <step-id> --continue   # Complete step and auto-advance
+bd close "$STEP_ID" --continue   # Complete step and auto-advance
 ```
 
 ## Phase Flow
@@ -196,15 +162,20 @@ The user's input may be an issue ID, partial match, or description.
 
 ```bash
 # Try direct lookup (use || true to avoid exit on not found)
-bd show <input> || true
+bd show <issue> || true
 ```
 
 If not found, search for matches:
 ```bash
-bd list --status=open --json | jq -r '.[] | "\(.id): \(.title)"'
+bd ready -n 0 --json | jq -r '.[] | "\(.id): \(.title)"'
 ```
 
 If no matches, offer to create a bead for the work.
+
+Once resolved, set the variable for subsequent steps:
+```bash
+ISSUE_ID="<resolved-issue-id>"  # e.g., "hq-1234"
+```
 
 #### 3. Detect Upstream
 
@@ -251,12 +222,24 @@ Variables set:
 - `$UPSTREAM_REF` - the full ref (e.g., "upstream/main")
 
 **Placeholder aliases used in this skill:**
-- `<upstream>` = `$ORG_REPO`
-- `<upstream-org>/<upstream-repo>` = `$ORG_REPO`
+
+Angle-bracket placeholders indicate values to substitute with actuals:
+- `<upstream>` = `$ORG_REPO` (e.g., "steveyegge/beads")
+- `<issue-id>` = the local bead ID being tackled
+- `<molecule-id>` = the tackle molecule ID (gt-mol-xxx)
+- `<skill-dir>` = directory where this skill was loaded from
+- `<cache-bead-id>` = cache bead ID from Step 4
+- `<pending-issues-json>` = JSON array from PENDING_JSON
+- `<tracked-repos-json>` = JSON array from TRACKED_REPOS
+- `<search-terms-array>` = keywords extracted from issue title
+- `<upstream-issue-number>` = GitHub issue number (or null)
+- `<upstream-pr-url>` = the draft PR URL on upstream repo
+
+**Sub-agent prompts:** Replace all `<placeholders>` with actual values before spawning - sub-agents don't inherit shell variables.
 
 **Persistence:** These variables don't persist across sessions. Store `$ORG_REPO` in the molecule for recovery:
 ```bash
-bd --no-daemon mol pour tackle --var issue=<issue-id> --var upstream="$ORG_REPO"
+bd --no-daemon mol pour tackle --var issue="$ISSUE_ID" --var upstream="$ORG_REPO"
 ```
 When resuming, re-run upstream detection or retrieve from molecule:
 ```bash
@@ -304,13 +287,13 @@ fi
 Use Task tool with:
   subagent_type: "general-purpose"
   prompt: |
-    Read resource file: ~/.claude/skills/tackle/resources/subagents/PROJECT-RESEARCH.md
+    Read resource file: <skill-dir>/resources/subagents/PROJECT-RESEARCH.md
 
     Execute with inputs:
     ```yaml
     inputs:
-      org_repo: "$ORG_REPO"
-      cache_bead: "$CACHE_BEAD"  # or null if not found
+      org_repo: "<upstream>"
+      cache_bead: "<cache-bead-id>"  # or "null" if not found
     ```
 
     Return structured YAML as specified in the resource file.
@@ -333,9 +316,10 @@ This is a housekeeping gate - check ALL issues with `pr-submitted` label.
 **Gather inputs for sub-agent:**
 ```bash
 # Build pending issues list
+# Note: capture()? returns null on no match instead of error
 PENDING_JSON=$(bd list --label=pr-submitted --json 2>/dev/null | jq '[.[] | {
   id: .id,
-  pr_number: (.notes | capture("PR #(?<n>[0-9]+)") | .n // null),
+  pr_number: ((.notes // "") | capture("PR #(?<n>[0-9]+)")? | .n // null),
   title: .title
 }] | map(select(.pr_number != null))')
 
@@ -347,13 +331,13 @@ echo "$PENDING_JSON"
 Use Task tool with:
   subagent_type: "general-purpose"
   prompt: |
-    Read resource file: ~/.claude/skills/tackle/resources/subagents/PR-CHECK.md
+    Read resource file: <skill-dir>/resources/subagents/PR-CHECK.md
 
     Execute with inputs:
     ```yaml
     inputs:
-      org_repo: "$ORG_REPO"
-      pending_issues: $PENDING_JSON
+      org_repo: "<upstream>"
+      pending_issues: <pending-issues-json>
     ```
 
     Return structured YAML as specified in the resource file.
@@ -381,10 +365,10 @@ TRACKED_REPOS=$(yq -o=json '.tackle.tracked_repos // []' .beads/config.yaml 2>/d
 [ "$TRACKED_REPOS" = "[]" ] || [ -z "$TRACKED_REPOS" ] && TRACKED_REPOS="[\"$ORG_REPO\"]"
 
 # Extract upstream issue number
-UPSTREAM_ISSUE=$(bd show <issue-id> --json | jq -r '.[0].external_ref // empty' | grep -oE 'issue:[0-9]+' | sed 's/issue://')
+UPSTREAM_ISSUE=$(bd show "$ISSUE_ID" --json | jq -r '.[0].external_ref // empty' | grep -oE 'issue:[0-9]+' | sed 's/issue://')
 
 # Extract search terms from issue title
-ISSUE_TITLE=$(bd show <issue-id> --json | jq -r '.[0].title')
+ISSUE_TITLE=$(bd show "$ISSUE_ID" --json | jq -r '.[0].title')
 ```
 
 **Invoke sub-agent:**
@@ -392,16 +376,16 @@ ISSUE_TITLE=$(bd show <issue-id> --json | jq -r '.[0].title')
 Use Task tool with:
   subagent_type: "general-purpose"
   prompt: |
-    Read resource file: ~/.claude/skills/tackle/resources/subagents/ISSUE-RESEARCH.md
+    Read resource file: <skill-dir>/resources/subagents/ISSUE-RESEARCH.md
 
     Execute with inputs:
     ```yaml
     inputs:
-      org_repo: "$ORG_REPO"
-      tracked_repos: $TRACKED_REPOS
+      org_repo: "<upstream>"
+      tracked_repos: <tracked-repos-json>
       issue_id: "<issue-id>"
-      upstream_issue: $UPSTREAM_ISSUE  # or null if not set
-      search_terms: ["<keywords from issue title>"]
+      upstream_issue: <upstream-issue-number>  # or null if not set
+      search_terms: <search-terms-array>
     ```
 
     Return structured YAML as specified in the resource file.
@@ -440,7 +424,8 @@ Accept natural language responses. If user chooses to skip/wait, do not create m
 Before creating the molecule, install the formula to town-level (user formulas, not project-specific):
 
 ```bash
-FORMULA_SRC="/home/aleiby/.claude/skills/tackle/resources/tackle.formula.toml"
+# <skill-dir> is the directory containing SKILL.md (where you loaded this skill from)
+FORMULA_SRC="<skill-dir>/resources/tackle.formula.toml"
 
 # Install to town-level formulas (Tier 2 - cross-project, user workflows)
 # GT_TOWN_ROOT is set by Gas Town, defaults to ~/gt
@@ -454,7 +439,7 @@ cp "$FORMULA_SRC" "$TOWN_FORMULAS/tackle.formula.toml"
 ```bash
 # Create molecule and capture ID (requires --no-daemon)
 # Note: mol pour outputs "Root issue: <id>" - parse that line
-MOL_OUTPUT=$(bd --no-daemon mol pour tackle --var issue=<issue-id> --var upstream="$ORG_REPO" 2>&1)
+MOL_OUTPUT=$(bd --no-daemon mol pour tackle --var issue="$ISSUE_ID" --var upstream="$ORG_REPO" 2>&1)
 MOL_ID=$(echo "$MOL_OUTPUT" | grep "Root issue:" | sed 's/.*Root issue: //')
 echo "Created molecule: $MOL_ID"
 
@@ -468,7 +453,7 @@ fi
 bd update "$MOL_ID" --add-label "formula:tackle"
 
 # Link source issue to molecule (bd show <issue> will show parent)
-bd update <issue-id> --parent "$MOL_ID"
+bd update "$ISSUE_ID" --parent "$MOL_ID"
 
 # Attach molecule to your hook
 gt mol attach "$MOL_ID"
@@ -478,7 +463,7 @@ gt mol attach "$MOL_ID"
 gt hook | grep -q "$MOL_ID" || echo "WARNING: Hook not set - check gt mol attach"
 
 # Mark the source issue as in_progress (keeps bd ready clean)
-bd update <issue-id> --status=in_progress
+bd update "$ISSUE_ID" --status=in_progress
 
 # CRITICAL: Claim first step with assignee so bd mol current works
 FIRST_STEP=$(bd ready --parent "$MOL_ID" --json 2>/dev/null | jq -r '.[0].id // empty')
@@ -508,7 +493,7 @@ See Resource Loading table above for which resource file to load.
 
 After completing work for a step:
 ```bash
-bd close <step-id> --continue
+bd close "$STEP_ID" --continue
 
 # CRITICAL: Set assignee so bd mol current can find you
 NEXT_STEP=$(bd ready --parent "$MOL_ID" --json 2>/dev/null | jq -r '.[0].id // empty')
@@ -617,13 +602,14 @@ Options:
 ### On Approve
 
 ```bash
-bd close <gate-plan-step-id> --continue
+# STEP_ID from bd --no-daemon mol current
+bd close "$STEP_ID" --continue
 ```
 
 **If claiming** (plan indicated "Will claim"):
 ```bash
 # Extract upstream issue number from the local issue's external_ref or labels
-UPSTREAM_ISSUE=$(bd show <issue-id> --json | jq -r '.[0].external_ref // empty' | grep -oE 'issue:[0-9]+' | sed 's/issue://')
+UPSTREAM_ISSUE=$(bd show "$ISSUE_ID" --json | jq -r '.[0].external_ref // empty' | grep -oE 'issue:[0-9]+' | sed 's/issue://')
 gh issue comment $UPSTREAM_ISSUE --repo $ORG_REPO --body "I'd like to work on this. I'll submit a PR soon."
 ```
 
@@ -671,6 +657,30 @@ Do NOT close the gate step until explicitly approved.
 ## Gate 2: `gate-submit` (Pre-Submit Review)
 
 **MANDATORY STOP** - Create draft PR, present for review, wait for explicit user approval before marking ready.
+
+### Variable Recovery (Required After Session Resume)
+
+If resuming at this gate after compaction or new session, recover required variables:
+
+```bash
+# Get molecule ID from hook
+MOL_ID=$(gt hook --json 2>/dev/null | jq -r '.molecule // empty')
+if [ -z "$MOL_ID" ]; then
+  echo "ERROR: Not attached to a molecule. Run: gt mol attach <molecule-id>"
+  exit 1
+fi
+
+# Recover ORG_REPO from molecule vars
+ORG_REPO=$(bd show "$MOL_ID" --json | jq -r '.[0].vars.upstream // empty')
+if [ -z "$ORG_REPO" ]; then
+  # Fallback: re-detect from git remote (see "Detect Upstream" section)
+  UPSTREAM_URL=$(git remote get-url upstream 2>/dev/null || git remote get-url fork-source 2>/dev/null || git remote get-url origin 2>/dev/null)
+  ORG_REPO=$(echo "$UPSTREAM_URL" | sed -E 's#.*github.com[:/]##' | sed 's/\.git$//')
+fi
+
+# Recover DEFAULT_BRANCH
+DEFAULT_BRANCH=$(gh api repos/$ORG_REPO --jq '.default_branch')
+```
 
 ### Idempotent Entry (Critical for Session Recovery)
 
@@ -721,7 +731,7 @@ Draft PR for <issue-id>:
 <pr-title>
 
 ## Target
-<upstream-org>/<upstream-repo> <- <fork-owner>:<branch-name>
+<upstream> <- <fork-owner>:<branch-name>
 
 ## Summary
 <pr-body-preview>
@@ -879,8 +889,8 @@ If any issues found: load REFLECT.md for recording format and pattern detection.
 After completing the reflect assessment:
 
 ```bash
-# 1. Close the reflect step
-bd close <reflect-step-id> --reason "<summary of findings>"
+# 1. Close the reflect step (STEP_ID from bd --no-daemon mol current)
+bd close "$STEP_ID" --reason "Clean run - no issues"  # or summary of findings
 
 # 2. CRITICAL: Close the ROOT MOLECULE (not just the steps!)
 MOL_ID=$(bd --no-daemon mol current --json | jq -r '.molecule.id')
@@ -908,7 +918,7 @@ To abandon a tackle mid-workflow:
 
 3. **Update issue** (optional):
    ```bash
-   bd update <issue-id> --status=open --notes="Tackle aborted"
+   bd update "$ISSUE_ID" --status=open --notes="Tackle aborted"
    ```
 
 The issue returns to ready state for future work.

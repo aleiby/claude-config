@@ -11,9 +11,14 @@ A Claude Code skill for contributing to open source projects with mandatory huma
 
 ## Dependencies
 
+**Required:**
 - [gh](https://cli.github.com/) - GitHub CLI for API access
-- [jq](https://jqlang.github.io/jq/) - JSON parsing
-- [yq](https://github.com/mikefarah/yq) - YAML parsing (optional, has fallback)
+- [jq](https://jqlang.github.io/jq/) - JSON processing
+
+**Required for tracked repos feature:**
+- [yq](https://github.com/mikefarah/yq) - YAML parsing for `.beads/config.yaml`
+  - Without yq: only the primary upstream repo is checked
+  - With yq: additional tracked repos from config are also searched
 
 ## What It Does
 

@@ -152,7 +152,7 @@ Write the code following upstream conventions.
 
 ### Commit Format
 
-From cached `research.yaml`:
+From cached research (stored in cache bead description, see PROJECT-RESEARCH sub-agent output):
 ```yaml
 commits:
   tense: "present"
