@@ -37,7 +37,47 @@ Check current step with `bd --no-daemon mol current`, then use this lookup:
 | submit, record | SUBMIT.md |
 | reflect | REFLECT.md |
 
-**Pre-molecule:** Only load RESEARCH.md when the project research cache is stale (at most daily).
+**Pre-molecule research:** Handled by sub-agents (see Sub-Agent Usage below). Main agent only loads compact YAML results.
+
+## Sub-Agent Usage (Context Optimization)
+
+**Use sub-agents for research phases** to reduce context in the main conversation. Sub-agents load their own resource files, execute API calls, and return compact structured summaries.
+
+### When to Use Sub-Agents
+
+| Phase | Sub-Agent? | Reason |
+|-------|------------|--------|
+| Project Research (Step 4) | **Yes** | Only when cache stale; fetches lots of API data |
+| Pending PR Check (Step 6) | **Yes** | Runs every tackle, loops through multiple issues |
+| Issue Research (Step 7) | **Yes** | Runs every tackle, checks multiple repos |
+| Implementation | No | Needs full codebase context |
+| Gates | No | Requires user interaction |
+
+**Important:** Cache freshness checks stay in SKILL.md to avoid spawning sub-agents unnecessarily.
+
+### Sub-Agent Invocation Pattern
+
+```
+Use Task tool with:
+  subagent_type: "general-purpose"
+  prompt: |
+    Read resource file: ~/.claude/skills/tackle/resources/subagents/<TYPE>.md
+
+    Execute with inputs:
+    ```yaml
+    inputs:
+      org_repo: "<value>"
+      ...
+    ```
+
+    Return structured YAML as specified in the resource file.
+```
+
+### Key Constraints
+
+- **Env vars do NOT transfer** - pass all state explicitly in the prompt
+- **Return structured YAML** - enables reliable parsing of results
+- **Sub-agents load their own resources** - keeps main context lean
 
 ## State Management via Beads Molecules
 
@@ -192,96 +232,158 @@ When resuming, re-run upstream detection or retrieve from molecule:
 ORG_REPO=$(bd show <molecule-id> --json | jq -r '.[0].vars.upstream // empty')
 ```
 
-#### 4. Project Research (cache check)
+#### 4. Project Research (cache check + sub-agent if stale)
 
 Check if project-level research cache needs refreshing.
 
-See "Project Research Step" section below for cache check logic.
+**Cache freshness check (stays in main agent):**
+```bash
+# Fast path: Check config for cached bead ID (requires yq)
+CACHE_BEAD=$(yq ".tackle.cache_beads[\"$ORG_REPO\"]" .beads/config.yaml 2>/dev/null)
 
-- If cache is fresh: use cached list of tracked repos
-- If cache is stale: load RESEARCH.md, refresh cache (this discovers related repos)
+# Fallback: Label search if not in config
+if [ -z "$CACHE_BEAD" ] || [ "$CACHE_BEAD" = "null" ]; then
+  CACHE_BEAD=$(bd list --label=tackle-cache --title-contains="$ORG_REPO" --json | jq -r '.[0].id // empty')
+fi
+
+# Check freshness (24h threshold)
+CACHE_FRESH=false
+if [ -n "$CACHE_BEAD" ] && [ "$CACHE_BEAD" != "null" ]; then
+  LAST_CHECKED=$(bd show "$CACHE_BEAD" --json | jq -r '.[0].notes' | grep -oE 'last_checked: [^ ]+' | sed 's/last_checked: //' || echo "")
+  if [ -n "$LAST_CHECKED" ]; then
+    # Cross-platform date parsing
+    if date -d "$LAST_CHECKED" +%s >/dev/null 2>&1; then
+      LAST_TS=$(date -d "$LAST_CHECKED" +%s)
+    elif date -j -f "%Y-%m-%dT%H:%M:%S" "${LAST_CHECKED%%+*}" +%s >/dev/null 2>&1; then
+      LAST_TS=$(date -j -f "%Y-%m-%dT%H:%M:%S" "${LAST_CHECKED%%+*}" +%s)
+    else
+      LAST_TS=0
+    fi
+    NOW_TS=$(date +%s)
+    AGE_HOURS=$(( (NOW_TS - LAST_TS) / 3600 ))
+    [ "$AGE_HOURS" -lt 24 ] && CACHE_FRESH=true
+  fi
+fi
+```
+
+**If cache is fresh:** Skip to Step 6 (Pending PR Check).
+
+**If cache is stale or missing:** Invoke sub-agent:
+```
+Use Task tool with:
+  subagent_type: "general-purpose"
+  prompt: |
+    Read resource file: ~/.claude/skills/tackle/resources/subagents/PROJECT-RESEARCH.md
+
+    Execute with inputs:
+    ```yaml
+    inputs:
+      org_repo: "$ORG_REPO"
+      cache_bead: "$CACHE_BEAD"  # or null if not found
+    ```
+
+    Return structured YAML as specified in the resource file.
+```
 
 #### 5. Project Report (only if new data found)
 
-If project research found new data, present the checkpoint (see RESEARCH.md Section 5).
+If project research sub-agent ran, present checkpoint with the returned data:
+- Guidelines summary
+- Related repos detected (offer to track)
 
-User can add more related repos to track, or continue.
+User can add more related repos or continue to Step 6.
 
-#### 6. Check Pending PR Outcomes
+#### 6. Check Pending PR Outcomes (Sub-Agent)
 
 **Before proceeding with any new work, clean up stale PR submissions.**
 
-This is a housekeeping gate - you must check ALL issues with `pr-submitted` label, not just the one you're about to tackle.
+This is a housekeeping gate - check ALL issues with `pr-submitted` label.
 
+**Gather inputs for sub-agent:**
 ```bash
-# Find issues awaiting PR outcomes (label is removed when outcome known)
-PENDING_PRS=$(bd list --label=pr-submitted --json 2>/dev/null | jq -r '.[] | .id')
+# Build pending issues list
+PENDING_JSON=$(bd list --label=pr-submitted --json 2>/dev/null | jq '[.[] | {
+  id: .id,
+  pr_number: (.notes | capture("PR #(?<n>[0-9]+)") | .n // null),
+  title: .title
+}] | map(select(.pr_number != null))')
 
-CHECKED=0
-for ISSUE_ID in $PENDING_PRS; do
-  # Extract PR number from notes
-  PR_NUM=$(bd show "$ISSUE_ID" --json | jq -r '.[0].notes' | grep -oE 'PR #[0-9]+|pull/[0-9]+' | grep -oE '[0-9]+' | head -1)
-
-  if [ -n "$PR_NUM" ]; then
-    PR_STATE=$(gh pr view "$PR_NUM" --repo $ORG_REPO --json state --jq '.state' 2>/dev/null)
-    case "$PR_STATE" in
-      MERGED) bd close "$ISSUE_ID" --reason "PR #$PR_NUM merged" ;;
-      CLOSED) bd close "$ISSUE_ID" --reason "PR #$PR_NUM closed/rejected" ;;
-      OPEN) ;; # Still awaiting review
-    esac
-    CHECKED=$((CHECKED + 1))
-  fi
-done
-
-echo "Checked $CHECKED pending PR(s)"
+echo "$PENDING_JSON"
 ```
 
-**Required output:** Report how many pending PRs were checked and any closures:
+**Invoke sub-agent:**
 ```
-Checked 2 pending PR(s): gt-abc (merged→closed), gt-xyz (still open)
+Use Task tool with:
+  subagent_type: "general-purpose"
+  prompt: |
+    Read resource file: ~/.claude/skills/tackle/resources/subagents/PR-CHECK.md
+
+    Execute with inputs:
+    ```yaml
+    inputs:
+      org_repo: "$ORG_REPO"
+      pending_issues: $PENDING_JSON
+    ```
+
+    Return structured YAML as specified in the resource file.
 ```
 
-If no pending PRs: `Checked 0 pending PR(s)` - still report it explicitly.
+**Handle result:**
+The sub-agent returns a `pr_check` YAML with `summary` and `actions_taken`.
 
-#### 7. Issue Research
+Report to user:
+```
+Checked N pending PR(s): <actions_taken summary>
+```
+
+If no pending PRs, sub-agent returns `checked_count: 0` - report explicitly.
+
+#### 7. Issue Research (Sub-Agent)
 
 **Check if the current issue is already addressed.**
 
-Check ALL tracked repos (main upstream + related repos from project research cache), not just the primary upstream.
-
+**Gather inputs for sub-agent:**
 ```bash
 # Get tracked repos from cache (requires yq: https://github.com/mikefarah/yq)
-TRACKED_REPOS=$(yq '.tackle.tracked_repos[]' .beads/config.yaml 2>/dev/null)
+TRACKED_REPOS=$(yq -o=json '.tackle.tracked_repos // []' .beads/config.yaml 2>/dev/null)
 # Falls back to just ORG_REPO if no cache
-[ -z "$TRACKED_REPOS" ] && TRACKED_REPOS="$ORG_REPO"
-```
+[ "$TRACKED_REPOS" = "[]" ] || [ -z "$TRACKED_REPOS" ] && TRACKED_REPOS="[\"$ORG_REPO\"]"
 
-For each tracked repo, check:
-
-```bash
-# Extract issue number from external_ref (portable regex, works on Linux and macOS)
+# Extract upstream issue number
 UPSTREAM_ISSUE=$(bd show <issue-id> --json | jq -r '.[0].external_ref // empty' | grep -oE 'issue:[0-9]+' | sed 's/issue://')
 
-for REPO in $TRACKED_REPOS; do
-  # Check if upstream issue is closed
-  if [ -n "$UPSTREAM_ISSUE" ]; then
-    ISSUE_STATE=$(gh api repos/$REPO/issues/$UPSTREAM_ISSUE --jq '.state')
-  fi
-
-  # Check for linked PRs
-  gh api repos/$REPO/issues/$UPSTREAM_ISSUE/timeline \
-    --jq '.[] | select(.event == "cross-referenced") | .source.issue | {number, title, state}'
-
-  # Check own open PRs
-  gh pr list --repo $REPO --author @me --json number,title,headRefName,statusCheckRollup,mergeable
-
-  # Check for claims
-  gh api repos/$REPO/issues/$UPSTREAM_ISSUE/comments --jq '
-    .[-10:] | .[] | {user: .user.login, date: .created_at, body: .body[:200]}'
-done
+# Extract search terms from issue title
+ISSUE_TITLE=$(bd show <issue-id> --json | jq -r '.[0].title')
 ```
 
-Review the recent comments and use judgment to determine if someone has claimed this issue (e.g., "I'll work on this", "taking this", "on it", etc.).
+**Invoke sub-agent:**
+```
+Use Task tool with:
+  subagent_type: "general-purpose"
+  prompt: |
+    Read resource file: ~/.claude/skills/tackle/resources/subagents/ISSUE-RESEARCH.md
+
+    Execute with inputs:
+    ```yaml
+    inputs:
+      org_repo: "$ORG_REPO"
+      tracked_repos: $TRACKED_REPOS
+      issue_id: "<issue-id>"
+      upstream_issue: $UPSTREAM_ISSUE  # or null if not set
+      search_terms: ["<keywords from issue title>"]
+    ```
+
+    Return structured YAML as specified in the resource file.
+```
+
+**Handle result:**
+The sub-agent returns an `issue_research` YAML with `decision` and `reason`.
+
+Use the `decision` field to determine next action:
+- `proceed` → Continue to Step 8 (create molecule)
+- `skip` → Present skip option to user
+- `wait` → Present wait option with `blocking_work` details
+- `fix_existing` → Present fix option with user's open PR details
 
 #### 8. Existing Work Decision
 
@@ -390,60 +492,14 @@ This marks the step complete and advances to the next step. The assignee step is
 
 ---
 
-## Project Research Step (Pre-Molecule)
+## Project Research Notes
 
-This pre-molecule step checks if project-level research needs refreshing. **Only load RESEARCH.md if the cache is stale.**
+Project research logic is in **Step 4** of Starting Tackle:
+- Cache freshness check runs in main agent (avoids unnecessary sub-agent spawn)
+- If stale: PROJECT-RESEARCH sub-agent fetches data and updates cache bead
+- 24-hour cache threshold
 
-### Check Cache Freshness
-
-```bash
-# ORG_REPO should be set from upstream detection earlier
-# Fast path: Check config for cached bead ID (requires yq: https://github.com/mikefarah/yq)
-CACHE_BEAD=$(yq ".tackle.cache_beads[\"$ORG_REPO\"]" .beads/config.yaml 2>/dev/null)
-
-# Fallback: Label search if not in config
-if [ -z "$CACHE_BEAD" ] || [ "$CACHE_BEAD" = "null" ]; then
-  CACHE_BEAD=$(bd list --label=tackle-cache --title-contains="$ORG_REPO" --json | jq -r '.[0].id // empty')
-fi
-
-# Check freshness (24h threshold)
-if [ -n "$CACHE_BEAD" ] && [ "$CACHE_BEAD" != "null" ]; then
-  # Portable regex (works on Linux and macOS)
-  LAST_CHECKED=$(bd show "$CACHE_BEAD" --json | jq -r '.[0].notes' | grep -oE 'last_checked: [^ ]+' | sed 's/last_checked: //' || echo "")
-  if [ -n "$LAST_CHECKED" ]; then
-    # Cross-platform date parsing (Linux uses -d, macOS uses -j -f)
-    if date -d "$LAST_CHECKED" +%s >/dev/null 2>&1; then
-      LAST_TS=$(date -d "$LAST_CHECKED" +%s)
-    elif date -j -f "%Y-%m-%dT%H:%M:%S" "$LAST_CHECKED" +%s >/dev/null 2>&1; then
-      LAST_TS=$(date -j -f "%Y-%m-%dT%H:%M:%S" "${LAST_CHECKED%%+*}" +%s)
-    else
-      LAST_TS=0
-    fi
-    NOW_TS=$(date +%s)
-    AGE_HOURS=$(( (NOW_TS - LAST_TS) / 3600 ))
-    if [ "$AGE_HOURS" -lt 24 ]; then
-      CACHE_FRESH=true
-    fi
-  fi
-fi
-```
-
-### If Cache Fresh
-
-Skip loading RESEARCH.md. Update last_checked and continue to Issue Research (step 7 in Starting Tackle):
-
-```bash
-bd update "$CACHE_BEAD" --notes "last_checked: $(date -Iseconds)"
-# Continue to step 7 (Issue Research)
-```
-
-### If Cache Stale or Missing
-
-Load `resources/RESEARCH.md` for full refresh instructions. After refresh, present the Project Report (Section 5) if new data was found, then continue to Issue Research (step 7 in Starting Tackle).
-
-### Force Refresh
-
-`/tackle --refresh` forces a refresh regardless of cache age. Load RESEARCH.md.
+**Force Refresh:** `/tackle --refresh` bypasses the cache check and always spawns the sub-agent.
 
 ---
 
