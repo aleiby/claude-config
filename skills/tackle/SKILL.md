@@ -15,6 +15,7 @@ user-invocable: true
 
 ```
 /tackle <issue>       Start working on issue
+/tackle --resume      Continue after compaction/restart
 /tackle --status      Show current state
 /tackle --abort       Abandon tackle, clean up
 /tackle --refresh     Force refresh upstream research
@@ -22,6 +23,19 @@ user-invocable: true
 ```
 
 When user asks for help, show this Quick Reference section.
+
+## 🔄 COMPACTION RECOVERY
+
+**OUTPUT THIS BLOCK IMMEDIATELY when tackle starts (new or resume):**
+
+```
+┌─────────────────────────────────────────────────────────┐
+│  🔄 COMPACTION RECOVERY: If session compacts, run:      │
+│     /tackle --resume                                    │
+└─────────────────────────────────────────────────────────┘
+```
+
+This banner ensures the recovery command survives in conversation history.
 
 ## Resumption Protocol (ALWAYS FIRST)
 
@@ -134,6 +148,7 @@ First, parse what the user wants:
 | Input | Action |
 |-------|--------|
 | `/tackle <issue>` | Start or resume tackle for issue |
+| `/tackle --resume` | Continue in-progress tackle after compaction/restart (runs Resumption Protocol) |
 | `/tackle --status` | Show current tackle state via `bd --no-daemon mol current` |
 | `/tackle --abort` | Abandon tackle, clean up molecule and branch |
 | `/tackle --refresh` | Force refresh upstream research |
@@ -978,6 +993,38 @@ bd close "$MOL_ID" --reason "Tackle complete - PR submitted"
 bd --no-daemon mol current   # Should show "No molecules in progress"
 gt mol status                # Should show "Nothing on hook"
 ```
+
+### Resuming (`/tackle --resume`)
+
+Use after compaction, handoff, or session restart to continue an in-progress tackle.
+
+**What it does:**
+
+1. **Output recovery banner** (ensures command survives future compaction)
+2. **Run Resumption Protocol:**
+   ```bash
+   bd --no-daemon mol current   # Get molecule state and current step
+   gt mol status                # Check hook attachment
+   ```
+3. **Re-attach if needed:**
+   ```bash
+   # If gt mol status shows "No molecule attached" but bd mol current shows one:
+   MOL_ID="<from bd mol current output>"
+   gt mol attach "$MOL_ID"
+   ```
+4. **Claim current step if not assigned:**
+   ```bash
+   STEP_ID="<current step from bd mol current>"
+   bd update "$STEP_ID" --status=in_progress --assignee="$BD_ACTOR"
+   ```
+5. **Load appropriate resource** for current step (see Resource Loading table)
+6. **Continue execution** from current step
+
+**When to use:**
+- After `/compact`
+- After `gt handoff` brings you back
+- When starting a new session with work on hook
+- When confused about tackle state
 
 ### Aborting (`/tackle --abort`)
 
