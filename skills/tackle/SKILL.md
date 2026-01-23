@@ -24,44 +24,6 @@ user-invocable: true
 
 When user asks for help, show this Quick Reference section.
 
-## 🔄 COMPACTION RECOVERY
-
-**WRITE TO CLAUDE.md IMMEDIATELY when tackle starts (new or resume):**
-
-This ensures the recovery instruction survives compaction (CLAUDE.md is reloaded after compact).
-
-```bash
-# Define message once - do not change format (cleanup depends on it)
-TACKLE_MARKER="## ⚠️ TACKLE IN PROGRESS"
-TACKLE_INSTRUCTION="Run \`/tackle --resume\` to continue."
-TACKLE_MESSAGE="$TACKLE_MARKER
-
-$TACKLE_INSTRUCTION"
-
-# Create or append to CLAUDE.md (idempotent)
-if [ ! -f CLAUDE.md ]; then
-  echo "$TACKLE_MESSAGE" > CLAUDE.md
-elif ! grep -q "$TACKLE_MARKER" CLAUDE.md; then
-  echo -e "\n$TACKLE_MESSAGE" >> CLAUDE.md
-fi
-```
-
-**CLEAN UP CLAUDE.md when tackle completes or aborts:**
-
-```bash
-TACKLE_MARKER="## ⚠️ TACKLE IN PROGRESS"
-TACKLE_INSTRUCTION="Run \`/tackle --resume\` to continue."
-
-if [ -f CLAUDE.md ] && grep -q "$TACKLE_MARKER" CLAUDE.md; then
-  # Remove the tackle section (marker line through instruction line)
-  sed -i "/^${TACKLE_MARKER//\//\\/}$/,/^${TACKLE_INSTRUCTION//\//\\/}$/d" CLAUDE.md
-  # Remove leading/trailing blank lines
-  sed -i -e :a -e '/^\s*$/{ $d; N; ba; }' -e '/./,$!d' CLAUDE.md
-  # Delete file if empty
-  [ ! -s CLAUDE.md ] && rm CLAUDE.md
-fi
-```
-
 ## Resumption Protocol (ALWAYS FIRST)
 
 **When to run this:** After session restart (compaction, handoff, new terminal), or when checking status with `/tackle --status`. This ensures you have accurate state before taking any action.
@@ -1004,15 +966,6 @@ bd close "$MOL_ID" --reason "Tackle complete - PR submitted"
 # 3. Verify cleanup
 bd --no-daemon mol current   # Should show "No molecules in progress"
 gt hook                      # Should show "Nothing on hook"
-
-# 4. CRITICAL: Clean up CLAUDE.md (see COMPACTION RECOVERY section)
-TACKLE_MARKER="## ⚠️ TACKLE IN PROGRESS"
-TACKLE_INSTRUCTION="Run \`/tackle --resume\` to continue."
-if [ -f CLAUDE.md ] && grep -q "$TACKLE_MARKER" CLAUDE.md; then
-  sed -i "/^${TACKLE_MARKER//\//\\/}$/,/^${TACKLE_INSTRUCTION//\//\\/}$/d" CLAUDE.md
-  sed -i -e :a -e '/^\s*$/{ $d; N; ba; }' -e '/./,$!d' CLAUDE.md
-  [ ! -s CLAUDE.md ] && rm CLAUDE.md
-fi
 ```
 
 **OUTPUT THIS BANNER when tackle completes:**
@@ -1028,10 +981,9 @@ fi
 Use after compaction, handoff, or session restart to continue an in-progress tackle.
 
 **What it does:**
-1. Write to CLAUDE.md (see **COMPACTION RECOVERY** section) - ensures marker survives future compaction
-2. Run the **Resumption Protocol** (see top of this file)
-3. Load appropriate resource for current step
-4. Continue execution
+1. Run the **Resumption Protocol** (see top of this file)
+2. Load appropriate resource for current step
+3. Continue execution
 
 **When to use:**
 - After `/compact`
@@ -1057,17 +1009,6 @@ To abandon a tackle mid-workflow:
 3. **Update issue** (optional):
    ```bash
    bd update "$ISSUE_ID" --status=open --notes="Tackle aborted"
-   ```
-
-4. **Clean up CLAUDE.md** (see COMPACTION RECOVERY section):
-   ```bash
-   TACKLE_MARKER="## ⚠️ TACKLE IN PROGRESS"
-   TACKLE_INSTRUCTION="Run \`/tackle --resume\` to continue."
-   if [ -f CLAUDE.md ] && grep -q "$TACKLE_MARKER" CLAUDE.md; then
-     sed -i "/^${TACKLE_MARKER//\//\\/}$/,/^${TACKLE_INSTRUCTION//\//\\/}$/d" CLAUDE.md
-     sed -i -e :a -e '/^\s*$/{ $d; N; ba; }' -e '/./,$!d' CLAUDE.md
-     [ ! -s CLAUDE.md ] && rm CLAUDE.md
-   fi
    ```
 
 The issue returns to ready state for future work.
