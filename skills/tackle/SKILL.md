@@ -115,15 +115,26 @@ This sets: `STEP_ID`
 
 **DO NOT load all resource files.** Load only what's needed for your current step.
 
+Resources are in the `resources/` folder relative to this SKILL.md file.
+
 Check current step with `bd --no-daemon mol current`, then use this lookup:
 
-| If Current Step Is | Load Resource |
-|--------------------|---------------|
-| plan, branch, implement | IMPLEMENT.md |
-| gate-plan, gate-submit | (none - see gate details in this file) |
+| Step | Resource |
+|------|----------|
+| plan | IMPLEMENT.md (Plan Phase) |
+| gate-plan | This file (APPROVAL GATES) |
+| branch | IMPLEMENT.md (Branch Phase) |
+| implement | IMPLEMENT.md (Implement Phase) |
 | validate | VALIDATION.md |
-| submit, record | SUBMIT.md |
+| gate-submit | This file (APPROVAL GATES) |
+| submit | SUBMIT.md |
+| record | SUBMIT.md (Record Phase) |
 | reflect | REFLECT.md |
+
+**Sub-agent resources (sub-agents load their own):**
+- `<skill-dir>/resources/subagents/PROJECT-RESEARCH.md`
+- `<skill-dir>/resources/subagents/ISSUE-RESEARCH.md`
+- `<skill-dir>/resources/subagents/PR-CHECK.md`
 
 **Pre-molecule research:** Handled by sub-agents (see Sub-Agent Usage below). Main agent only loads compact YAML results.
 
@@ -142,38 +153,6 @@ Check current step with `bd --no-daemon mol current`, then use this lookup:
 | Gates | No | Requires user interaction |
 
 **Important:** Cache freshness checks stay in SKILL.md to avoid spawning sub-agents unnecessarily.
-
-## State Management via Beads Molecules
-
-**Starting a tackle (uses gt sling):**
-```bash
-# Store upstream context in the issue bead (bead carries its own context)
-bd update "$ISSUE_ID" --notes "upstream: $ORG_REPO"
-
-# Sling the issue with tackle formula - this:
-# 1. Creates a wisp from the tackle formula
-# 2. Bonds the wisp to the issue bead
-# 3. Hooks the issue to self (status=hooked)
-# 4. Stores attached_molecule in the issue bead's description
-gt sling tackle --on "$ISSUE_ID"
-```
-
-**Check current state:**
-```bash
-gt hook                      # What's on my hook? Shows work + attached molecule
-bd --no-daemon mol current   # Show current step in the molecule
-bd ready                     # Find next executable step
-```
-
-**Get molecule ID:**
-```bash
-MOL_ID=$(gt hook --json | jq -r '.attached_molecule')
-```
-
-**Advance through steps:**
-```bash
-bd close "$STEP_ID" --continue   # Complete step and auto-advance
-```
 
 ## Phase Flow
 
@@ -277,17 +256,6 @@ Angle-bracket placeholders indicate values to substitute with actuals:
 - `<upstream-pr-url>` = the draft PR URL on upstream repo
 
 **Sub-agent prompts:** Replace all `<placeholders>` with actual values before spawning - sub-agents don't inherit shell variables.
-
-**Persistence:** These variables don't persist across sessions. The upstream is stored in the issue bead's notes before slinging:
-```bash
-bd update "$ISSUE_ID" --notes "upstream: $ORG_REPO"
-gt sling tackle --on "$ISSUE_ID"
-```
-When resuming, get the issue bead ID from hook and read its notes:
-```bash
-ISSUE_ID=$(gt hook --json | jq -r '.bead_id')
-ORG_REPO=$(bd show "$ISSUE_ID" --json | jq -r '.[0].notes' | grep -oP 'upstream: \K[^\s]+')
-```
 
 #### 4. Project Research (cache check + sub-agent if stale)
 
@@ -513,17 +481,6 @@ This marks the step complete and advances to the next step. The assignee update 
 **Note:** The fallback to `bd list --parent` works around a known issue where `bd ready --parent` may return empty even when steps are available.
 
 **Continue until reflect is complete and root molecule is closed.** Tackle is not done until then.
-
----
-
-## Project Research Notes
-
-Project research logic is in **Step 4** of Starting Tackle:
-- Cache freshness check runs in main agent (avoids unnecessary sub-agent spawn)
-- If stale: PROJECT-RESEARCH sub-agent fetches data and updates cache bead
-- 24-hour cache threshold
-
-**Force Refresh:** `/tackle --refresh` bypasses the cache check and always spawns the sub-agent.
 
 ---
 
@@ -869,25 +826,11 @@ After completing the reflect assessment:
 # 1. Close the reflect step (STEP_ID from bd --no-daemon mol current)
 bd close "$STEP_ID" --reason "Clean run - no issues"  # or summary of findings
 
-# 2. CRITICAL: Close the ROOT MOLECULE (not just the steps!)
-# MOL_ID should already be set from context-recovery.sh, but verify it exists
-if [ -z "$MOL_ID" ]; then
-  MOL_ID=$(gt hook --json | jq -r '.attached_molecule // empty')
-fi
-if [ -z "$MOL_ID" ]; then
-  echo "ERROR: No molecule ID found. Check gt hook or context-recovery.sh output."
-else
-  bd close "$MOL_ID" --reason "Tackle complete - PR submitted"
-fi
-
-# 3. Verify molecule closed
-bd --no-daemon mol current   # Should show "No molecules in progress"
-
-# 4. Unhook the issue (frees your hook for other work)
-# The issue stays in "deferred" status until PR outcome - that's correct.
-# But you can work on other things while waiting for maintainer review.
-gt unhook --force
+# 2. Close molecule and unhook
+source "$SKILL_DIR/resources/scripts/complete-tackle.sh"
 ```
+
+The script closes the root molecule, verifies closure, and unhooks the issue (freeing your hook for other work while the PR awaits review).
 
 **OUTPUT THIS BANNER when tackle completes:**
 
@@ -906,7 +849,7 @@ Use after compaction, handoff, or session restart to continue an in-progress tac
 2. Load resource for the specified step (or auto-detect from `bd mol current`)
 3. Continue execution
 
-See **Resource Loading** section below for step names and their resources.
+See **Resource Loading** section above for step names and their resources.
 
 **When to use:**
 - After `/compact`
@@ -944,31 +887,6 @@ The issue returns to ready state for future work.
 │  ⛔ TACKLE ABORTED: <issue-id>                          │
 └─────────────────────────────────────────────────────────┘
 ```
-
-## Resource Loading
-
-Resources are in the `resources/` folder relative to this SKILL.md file.
-
-**Step to resource mapping:**
-
-| Step | Resource |
-|------|----------|
-| plan | IMPLEMENT.md (Plan Phase section) |
-| gate-plan | This file (gate-plan section below) |
-| branch | IMPLEMENT.md (Branch Phase section) |
-| implement | IMPLEMENT.md (Implement Phase section) |
-| validate | VALIDATION.md |
-| gate-submit | This file (gate-submit section below) |
-| submit | SUBMIT.md |
-| record | SUBMIT.md (Record Phase section) |
-| reflect | REFLECT.md |
-
-**Sub-agent resources (sub-agents load their own):**
-- `<skill-dir>/resources/subagents/PROJECT-RESEARCH.md`
-- `<skill-dir>/resources/subagents/ISSUE-RESEARCH.md`
-- `<skill-dir>/resources/subagents/PR-CHECK.md`
-
-Only load the resource needed for the current step to minimize context.
 
 ## Session Handoff
 

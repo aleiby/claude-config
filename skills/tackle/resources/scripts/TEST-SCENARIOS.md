@@ -10,6 +10,7 @@ This document defines test cases for validating the tackle bash scripts.
 | **ci-status-check.sh** | Poll CI, detect pre-existing failures<br>@ *gate-submit* | → `PR_NUMBER`, `ORG_REPO`, `DEFAULT_BRANCH`<br>← `FAILED`, `PRE_EXISTING`, `PENDING` |
 | **claim-step.sh** | Claim ownership of current molecule step<br>@ *Step 1 (Claim Step)* | → `MOL_ID`<br>← `STEP_ID` |
 | **complete-step.sh** | Close step, claim next with fallback<br>@ *After each step* | → `STEP_ID`, `MOL_ID`<br>← `NEXT_STEP` |
+| **complete-tackle.sh** | Close root molecule and unhook after completion<br>@ *Reflect phase (after step close)* | → `MOL_ID` (optional, recovered from hook)<br>← (closes molecule, unhooks) |
 | **context-recovery.sh** | Recover IDs after session restart<br>@ *Step 10 (Context Recovery)* | → (none - reads gt hook)<br>← `ISSUE_ID`, `MOL_ID`, `ORG_REPO` |
 | **detect-upstream.sh** | Detect git remote, extract org/repo<br>@ *Step 2 (Research)* | → (none - reads git config)<br>← `UPSTREAM_REMOTE`, `UPSTREAM_URL`, `ORG_REPO`, `DEFAULT_BRANCH`, `UPSTREAM_REF` |
 | **env-check.sh** | Validate required env vars (BD_ACTOR, SKILL_DIR)<br>@ *Resumption Protocol* | → (reads env)<br>← (exits 1 if missing) |
@@ -270,8 +271,27 @@ else
 fi
 
 echo ""
+echo "=== complete-tackle.sh ==="
+
+# Test 20: No MOL_ID and no hook (should error)
+unset MOL_ID
+# Create a wrapper script that mocks gt and sources complete-tackle.sh
+COMPLETE_OUT=$(bash -c "
+  gt() { echo '{}'; }
+  export -f gt
+  MOL_ID=''
+  source '$SCRIPT_DIR/complete-tackle.sh'
+" 2>&1 || true)
+if echo "$COMPLETE_OUT" | grep -q "ERROR.*No molecule ID"; then
+  test_pass "No MOL_ID error"
+else
+  test_fail "No MOL_ID error" "Got: $COMPLETE_OUT"
+fi
+
+echo ""
 echo "=== TESTS REQUIRING ACTIVE MOLECULE (not run) ==="
 echo "  - claim-step.sh / complete-step.sh with active molecule"
+echo "  - complete-tackle.sh with active molecule (close + unhook)"
 echo "  - report-problem.sh full send (needs mail infrastructure)"
 ```
 
@@ -443,6 +463,29 @@ MOL_ID=$(gt hook --json | jq -r '.attached_molecule')
 source ~/.claude/skills/tackle/resources/scripts/complete-step.sh
 echo "NEXT_STEP=$NEXT_STEP"
 # Expected: Current step closed, NEXT_STEP set to next ready step
+```
+
+---
+
+### complete-tackle.sh
+
+#### Test 1: No MOL_ID and no hook (error case)
+```bash
+unset MOL_ID
+# Mock gt to return empty hook
+gt() { echo "{}"; }
+export -f gt
+source ~/.claude/skills/tackle/resources/scripts/complete-tackle.sh
+# Expected: Exit 1 with "ERROR: No molecule ID found"
+```
+
+#### Test 2: With active molecule (requires Gas Town)
+```bash
+# Should have an active tackle molecule on hook
+gt hook  # Verify molecule attached
+source ~/.claude/skills/tackle/resources/scripts/complete-tackle.sh
+# Expected: Molecule closed, "No molecules in progress" shown, hook cleared
+gt hook  # Should show nothing hooked
 ```
 
 ---

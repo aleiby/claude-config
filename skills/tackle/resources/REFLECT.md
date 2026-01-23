@@ -168,24 +168,16 @@ EOF
 
 ### IMPORTANT: Close the Root Molecule
 
-**Molecules do NOT auto-close.** After closing the reflect step, you must explicitly close the root molecule:
+**Molecules do NOT auto-close.** After closing the reflect step, you must explicitly close the root molecule and unhook:
 
 ```bash
-# Get molecule ID if needed
-MOL_ID=$(bd --no-daemon mol current --json | jq -r '.molecule.id')
-
-# Close the root molecule
-bd close "$MOL_ID" --reason "Tackle complete - PR submitted"
+source "$SKILL_DIR/resources/scripts/complete-tackle.sh"
 ```
 
-Verify cleanup:
-```bash
-bd --no-daemon mol current
-# Should show no active molecule, or error
-
-gt mol status
-# Should show no attached molecule
-```
+This script:
+1. Closes the root molecule
+2. Verifies molecule closure
+3. Unhooks the issue
 
 **Why this matters**: Open molecules pollute future queries. Pattern detection depends on closed molecules with proper close_reason fields.
 
