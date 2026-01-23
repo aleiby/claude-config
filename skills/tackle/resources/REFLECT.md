@@ -71,11 +71,8 @@ This step runs **immediately after PR submission** (not after merge). Capture fr
 Tackle molecules are labeled `formula:tackle` for querying. Molecules with friction are also labeled `tackle:friction`. Use past molecules to detect patterns:
 
 ```bash
-# Find closed tackle molecules that had friction (excludes clean runs)
-bd list --all --label "formula:tackle" --label "tackle:friction" --json | jq '
-  .[] | select(.status == "closed") |
-  {id, close_reason, notes}
-'
+source "$SKILL_DIR/resources/scripts/query-friction.sh"
+# Or run directly: bash "$SKILL_DIR/resources/scripts/query-friction.sh"
 ```
 
 Check notes and close_reason fields for recurring issues before proposing fixes.

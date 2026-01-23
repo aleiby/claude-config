@@ -6,20 +6,11 @@ Verify implementation before submission.
 
 Use upstream and default branch. If resuming after session restart:
 ```bash
-# Recover ORG_REPO from molecule vars
-MOL_ID=$(gt hook --json 2>/dev/null | jq -r '.attached_molecule // empty')
-ORG_REPO=$(bd show "$MOL_ID" --json | jq -r '.[0].vars.upstream // empty')
+# Recover context (sets ISSUE_ID, MOL_ID, ORG_REPO)
+source "$SKILL_DIR/resources/scripts/context-recovery.sh"
 
-# If not in molecule, re-detect from git remote
-if [ -z "$ORG_REPO" ]; then
-  UPSTREAM_URL=$(git remote get-url upstream 2>/dev/null || git remote get-url fork-source 2>/dev/null || git remote get-url origin 2>/dev/null)
-  ORG_REPO=$(echo "$UPSTREAM_URL" | sed -E 's#.*github.com[:/]##' | sed 's/\.git$//')
-fi
-
-# Get remote name and default branch
-UPSTREAM_REMOTE=$(git remote -v | grep -E "github.com[:/]$ORG_REPO" | head -1 | awk '{print $1}')
-DEFAULT_BRANCH=$(gh api repos/$ORG_REPO --jq '.default_branch')
-UPSTREAM_REF="$UPSTREAM_REMOTE/$DEFAULT_BRANCH"
+# Get upstream details (sets UPSTREAM_REMOTE, DEFAULT_BRANCH, UPSTREAM_REF)
+source "$SKILL_DIR/resources/scripts/detect-upstream.sh"
 ```
 
 ## Validation Checklist

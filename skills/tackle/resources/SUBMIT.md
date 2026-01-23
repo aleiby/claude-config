@@ -19,12 +19,12 @@ Now we mark it ready for maintainer review.
 
 ### 1. Get PR Number
 
-PR info should be available from the gate-submit step. If resuming:
+PR info should be available from gate-submit (via `pr-check-idempotent.sh`). If resuming:
 
 ```bash
-BRANCH=$(git branch --show-current)
-FORK_OWNER=$(gh repo view --json owner --jq '.owner.login')
-PR_NUMBER=$(gh pr list --repo $ORG_REPO --head "$FORK_OWNER:$BRANCH" --json number --jq '.[0].number')
+# Use pr-check-idempotent.sh which correctly handles fork owner detection
+source "$SKILL_DIR/resources/scripts/pr-check-idempotent.sh"
+# Sets: PR_NUMBER, IS_DRAFT, PR_URL, BRANCH, FORK_OWNER
 ```
 
 ### 2. Mark Draft as Ready
@@ -36,23 +36,14 @@ gh pr ready $PR_NUMBER --repo $ORG_REPO
 ### 3. Verify PR is Ready
 
 ```bash
-IS_DRAFT=$(gh pr view $PR_NUMBER --repo $ORG_REPO --json isDraft --jq '.isDraft')
-if [ "$IS_DRAFT" = "true" ]; then
-  echo "ERROR: PR #$PR_NUMBER still in draft - gh pr ready may have failed"
-  # Retry or investigate
-  exit 1
-fi
-
-STATE=$(gh pr view $PR_NUMBER --repo $ORG_REPO --json state --jq '.state')
-echo "PR #$PR_NUMBER is $STATE and ready for review"
+source "$SKILL_DIR/resources/scripts/verify-pr-ready.sh"
+# Sets: IS_DRAFT, PR_STATE, PR_URL
+# Exits 1 if still draft
 ```
 
-### 4. Capture Final PR URL
+### 4. PR URL
 
-```bash
-PR_URL=$(gh pr view $PR_NUMBER --repo $ORG_REPO --json url --jq '.url')
-echo "PR submitted: $PR_URL"
-```
+`PR_URL` is set by the scripts above.
 
 ## PR Title and Body Reference
 
@@ -139,24 +130,11 @@ This separation allows tracking issues through the full lifecycle, even if PRs n
 
 ### 1. Update Local Issue
 
-**Note:** `--notes` replaces existing notes (doesn't append). Include all info in one update:
-
 ```bash
-# Count changed files and lines for the record
-DIFF_STAT=$(git diff --stat $UPSTREAM_REF | tail -1)
-FILES_CHANGED=$(echo "$DIFF_STAT" | grep -oE '[0-9]+ file' | grep -oE '[0-9]+')
-# Sum insertions and deletions using shell arithmetic (avoids bc/paste dependency)
-INSERTIONS=$(echo "$DIFF_STAT" | grep -oE '[0-9]+ insertion' | grep -oE '[0-9]+' || echo 0)
-DELETIONS=$(echo "$DIFF_STAT" | grep -oE '[0-9]+ deletion' | grep -oE '[0-9]+' || echo 0)
-LINES_CHANGED=$((${INSERTIONS:-0} + ${DELETIONS:-0}))
-
-bd update <issue-id> \
-  --add-label pr-submitted \
-  --status=deferred \
-  --notes="PR: $PR_URL
-files: $FILES_CHANGED
-lines: ~$LINES_CHANGED
-submitted: $(date -Iseconds)"
+source "$SKILL_DIR/resources/scripts/record-pr-stats.sh"
+# Requires: ISSUE_ID, PR_URL, UPSTREAM_REF
+# Sets: FILES_CHANGED, LINES_CHANGED
+# Updates issue with pr-submitted label, deferred status, and PR info
 ```
 
 The molecule and issue history provide the audit trail for learning.

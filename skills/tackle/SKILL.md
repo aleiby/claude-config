@@ -25,43 +25,75 @@ user-invocable: true
 
 When user asks for help, show this Quick Reference section.
 
+## When Things Go Wrong
+
+**STOP. Do not try to fix skill/workflow problems yourself.**
+
+If you encounter:
+- Script errors or unexpected failures
+- Commands that don't work as documented
+- Confusing or contradictory instructions
+- State that doesn't match what's expected
+- Workflow that seems stuck or broken
+
+**Do this instead:**
+
+1. **Stop immediately** - Don't retry, work around, or guess at fixes
+2. **Mail the mayor** with:
+   - What step you were on
+   - What you tried to do
+   - The exact error or unexpected behavior
+   - Relevant state (`gt hook --json`, `bd --no-daemon mol current`)
+3. **Wait for guidance** - The mayor will investigate and fix the skill
+
+```bash
+# Report problem to mayor
+STEP="gate-submit"  # Current step
+ERROR_DESC="ci-status-check.sh failed with unexpected error"
+ERROR_MSG="jq: error: Cannot iterate over null"  # Optional
+source "$SKILL_DIR/resources/scripts/report-problem.sh"
+```
+
+**Why this matters:** Attempting to fix workflow problems mid-tackle often makes things worse. Problems reported to the mayor get fixed in the skill itself, helping all future runs.
+
 ## Resumption Protocol (ALWAYS FIRST)
 
 **When to run this:** After session restart (compaction, handoff, new terminal), or when checking status with `/tackle --status`. This ensures you have accurate state before taking any action.
 
 **NEVER trust summary alone. State is truth.**
 
+### SKILL_DIR (Required)
+
+Before running any tackle scripts, set `SKILL_DIR` to the directory containing this SKILL.md file:
+
+```bash
+SKILL_DIR="<path-to-tackle-skill-directory>"  # Set this based on where you loaded the skill
+```
+
+All subsequent `source` commands use `$SKILL_DIR`. Preserve this variable throughout the tackle session.
+
 ### Context Recovery
 
 Recover all variables needed for tackle execution:
 
 ```bash
-# Get IDs from hook (bead_id = issue, attached_molecule = tackle wisp)
-HOOK_JSON=$(gt hook --json)
-ISSUE_ID=$(echo "$HOOK_JSON" | jq -r '.bead_id')
-MOL_ID=$(echo "$HOOK_JSON" | jq -r '.attached_molecule')
-
-# Get upstream from issue bead notes (stored before slinging)
-ORG_REPO=$(bd show "$ISSUE_ID" --json | jq -r '.[0].notes' | grep -oP 'upstream: \K[^\s]+')
-
-# Upstream must be in notes (stored by Step 3 before slinging)
-if [ -z "$ORG_REPO" ]; then
-  echo "ERROR: No upstream found in issue notes. Was this tackle started correctly?"
-  echo "Fix: bd update $ISSUE_ID --notes 'upstream: <org/repo>'"
-  exit 1
-fi
-
-# Show current step
-bd --no-daemon mol current
+source "$SKILL_DIR/resources/scripts/context-recovery.sh"
 ```
+
+This sets: `ISSUE_ID`, `MOL_ID`, `ORG_REPO`
+
+**Errors**: Exits 1 with message if upstream not found in issue notes.
 
 ### Claiming Current Step
 
 If `bd mol current` shows a step but you're not the assignee:
 ```bash
-STEP_ID=$(bd ready --parent "$MOL_ID" --json | jq -r '.[0].id')
-bd update "$STEP_ID" --status=in_progress --assignee="$BD_ACTOR"
+source "$SKILL_DIR/resources/scripts/claim-step.sh"
 ```
+
+This sets: `STEP_ID`
+
+**Requires**: `MOL_ID` must be set.
 
 ## Resource Loading (Progressive Disclosure)
 
@@ -200,54 +232,12 @@ ISSUE_ID="<resolved-issue-id>"  # e.g., "hq-1234"
 #### 3. Detect Upstream
 
 ```bash
-# Detect remote (prefer upstream, then fork-source, then origin)
-UPSTREAM_REMOTE="upstream"
-UPSTREAM_URL=$(git remote -v | grep -E '^upstream\s' | head -1 | awk '{print $2}')
-if [ -z "$UPSTREAM_URL" ]; then
-  UPSTREAM_REMOTE="fork-source"
-  UPSTREAM_URL=$(git remote -v | grep -E '^fork-source\s' | head -1 | awk '{print $2}')
-fi
-if [ -z "$UPSTREAM_URL" ]; then
-  UPSTREAM_REMOTE="origin"
-  UPSTREAM_URL=$(git remote -v | grep -E '^origin\s' | head -1 | awk '{print $2}')
-fi
-
-# Error if no remote found
-if [ -z "$UPSTREAM_URL" ]; then
-  echo "ERROR: No git remote found. Expected 'upstream', 'fork-source', or 'origin'."
-  echo "Add a remote with: git remote add origin <url>"
-  exit 1
-fi
-
-# Extract org/repo, strip .git suffix if present
-ORG_REPO=$(echo "$UPSTREAM_URL" | sed -E 's#.*github.com[:/]##' | sed 's/\.git$//')
-
-# Verify we got a valid org/repo
-if [ -z "$ORG_REPO" ] || [ "$ORG_REPO" = "$UPSTREAM_URL" ]; then
-  echo "ERROR: Could not parse org/repo from URL: $UPSTREAM_URL"
-  echo "Expected GitHub URL format (https or ssh)"
-  exit 1
-fi
-
-# If we fell back to origin, check if it's a fork and use parent instead
-if [ "$UPSTREAM_REMOTE" = "origin" ]; then
-  PARENT_REPO=$(gh api repos/$ORG_REPO --jq '.parent.full_name // empty' 2>/dev/null)
-  if [ -n "$PARENT_REPO" ]; then
-    echo "Detected fork: $ORG_REPO is a fork of $PARENT_REPO"
-    echo "Using upstream: $PARENT_REPO"
-    ORG_REPO="$PARENT_REPO"
-    # Add the upstream remote for future use
-    git remote add upstream "https://github.com/$PARENT_REPO.git" 2>/dev/null || true
-    git fetch upstream 2>/dev/null || true
-    UPSTREAM_REMOTE="upstream"
-    UPSTREAM_URL="https://github.com/$PARENT_REPO.git"
-  fi
-fi
-
-# Detect default branch
-DEFAULT_BRANCH=$(gh api repos/$ORG_REPO --jq '.default_branch')
-UPSTREAM_REF="$UPSTREAM_REMOTE/$DEFAULT_BRANCH"
+source "$SKILL_DIR/resources/scripts/detect-upstream.sh"
 ```
+
+This sets: `UPSTREAM_REMOTE`, `UPSTREAM_URL`, `ORG_REPO`, `DEFAULT_BRANCH`, `UPSTREAM_REF`
+
+**Errors**: Exits 1 if no valid remote found or URL cannot be parsed.
 
 Variables set:
 - `$UPSTREAM_REMOTE` - the git remote name (upstream, fork-source, or origin)
@@ -289,37 +279,12 @@ Check if project-level research cache needs refreshing.
 
 **Cache freshness check (stays in main agent):**
 ```bash
-# Fast path: Check config for cached bead ID (requires yq)
-CACHE_BEAD=$(yq ".tackle.cache_beads[\"$ORG_REPO\"]" .beads/config.yaml 2>/dev/null)
-
-# Fallback: Label search if not in config
-if [ -z "$CACHE_BEAD" ] || [ "$CACHE_BEAD" = "null" ]; then
-  CACHE_BEAD=$(bd list --label=tackle-cache --title-contains="$ORG_REPO" --json | jq -r '.[0].id // empty')
-fi
-
-# Check freshness (24h threshold)
-CACHE_FRESH=false
-if [ -n "$CACHE_BEAD" ] && [ "$CACHE_BEAD" != "null" ]; then
-  LAST_CHECKED=$(bd show "$CACHE_BEAD" --json | jq -r '.[0].notes' | grep -oE 'last_checked: [^ ]+' | sed 's/last_checked: //' || echo "")
-  if [ -n "$LAST_CHECKED" ]; then
-    # Cross-platform date parsing (handles +TZ offset, Z suffix, or bare timestamp)
-    # Strip timezone suffix for parsing: remove trailing Z, or +/-HH:MM offset
-    BARE_TS=$(echo "$LAST_CHECKED" | sed -E 's/(Z|[+-][0-9]{2}:[0-9]{2})$//')
-    if date -d "$LAST_CHECKED" +%s >/dev/null 2>&1; then
-      # GNU date (Linux)
-      LAST_TS=$(date -d "$LAST_CHECKED" +%s)
-    elif date -j -f "%Y-%m-%dT%H:%M:%S" "$BARE_TS" +%s >/dev/null 2>&1; then
-      # BSD date (macOS) - use stripped timestamp
-      LAST_TS=$(date -j -f "%Y-%m-%dT%H:%M:%S" "$BARE_TS" +%s)
-    else
-      LAST_TS=0
-    fi
-    NOW_TS=$(date +%s)
-    AGE_HOURS=$(( (NOW_TS - LAST_TS) / 3600 ))
-    [ "$AGE_HOURS" -lt 24 ] && CACHE_FRESH=true
-  fi
-fi
+source "$SKILL_DIR/resources/scripts/cache-freshness.sh"
 ```
+
+This sets: `CACHE_BEAD`, `CACHE_FRESH`
+
+**Requires**: `ORG_REPO` must be set.
 
 **If cache is fresh:** Skip to Step 6 (Pending PR Check).
 
@@ -508,15 +473,17 @@ if ! gt hook --json 2>/dev/null | jq -e '.attached_molecule' > /dev/null; then
   exit 1
 fi
 
-# Get molecule ID from hook
-MOL_ID=$(gt hook --json | jq -r '.attached_molecule')
+# Get molecule ID and first step from hook (avoids bd routing issues)
+HOOK_JSON=$(gt hook --json)
+MOL_ID=$(echo "$HOOK_JSON" | jq -r '.attached_molecule')
 echo "Tackle started: $MOL_ID"
 
 # Add formula label for pattern detection in reflect phase
 bd update "$MOL_ID" --add-label "formula:tackle"
 
 # CRITICAL: Claim first step with assignee so bd mol current works
-FIRST_STEP=$(bd ready --parent "$MOL_ID" --json 2>/dev/null | jq -r '.[0].id // empty')
+# Use gt hook data directly (more reliable than bd ready --parent)
+FIRST_STEP=$(echo "$HOOK_JSON" | jq -r '.progress.ready_steps[0] // empty')
 if [ -n "$FIRST_STEP" ]; then
   bd update "$FIRST_STEP" --status=in_progress --assignee "$BD_ACTOR"
 fi
@@ -543,22 +510,12 @@ See Resource Loading table above for which resource file to load.
 
 After completing work for a step:
 ```bash
-bd close "$STEP_ID" --continue
-
-# CRITICAL: Claim next step so bd mol current can find you
-# First try bd ready --parent (preferred - respects dependencies)
-NEXT_STEP=$(bd ready --parent "$MOL_ID" --json 2>/dev/null | jq -r '.[0].id // empty')
-
-# Fallback: if bd ready returns empty, find next open step via bd list
-# This handles cases where bd ready incorrectly filters out valid steps
-if [ -z "$NEXT_STEP" ]; then
-  NEXT_STEP=$(bd list --parent "$MOL_ID" --status=open --json 2>/dev/null | jq -r '.[0].id // empty')
-fi
-
-if [ -n "$NEXT_STEP" ]; then
-  bd update "$NEXT_STEP" --status=in_progress --assignee "$BD_ACTOR"
-fi
+source "$SKILL_DIR/resources/scripts/complete-step.sh"
 ```
+
+This sets: `NEXT_STEP`
+
+**Requires**: `STEP_ID` and `MOL_ID` must be set.
 
 This marks the step complete and advances to the next step. The assignee update is required because `bd mol current` filters by assignee - without it, the molecule becomes invisible.
 
@@ -751,39 +708,23 @@ DEFAULT_BRANCH=$(gh api repos/$ORG_REPO --jq '.default_branch')
 When entering gate-submit, FIRST check if a draft PR already exists:
 
 ```bash
-BRANCH=$(git branch --show-current)
+source "$SKILL_DIR/resources/scripts/pr-check-idempotent.sh"
 
-# Get fork owner from origin remote URL (NOT gh repo view, which returns upstream owner)
-ORIGIN_URL=$(git remote get-url origin 2>/dev/null)
-FORK_OWNER=$(echo "$ORIGIN_URL" | sed -E 's#.*github.com[:/]([^/]+)/.*#\1#')
-if [ -z "$FORK_OWNER" ]; then
-  echo "ERROR: Could not determine fork owner from origin remote"
-  exit 1
-fi
-
-PR_JSON=$(gh pr list --repo $ORG_REPO --head "$FORK_OWNER:$BRANCH" --json number,isDraft,url --jq '.[0]')
-
-if [ -n "$PR_JSON" ]; then
-  PR_NUMBER=$(echo "$PR_JSON" | jq -r '.number')
-  IS_DRAFT=$(echo "$PR_JSON" | jq -r '.isDraft')
-  PR_URL=$(echo "$PR_JSON" | jq -r '.url')
-
-  if [ "$IS_DRAFT" = "false" ]; then
-    # Already submitted - skip to record phase
-    echo "PR #$PR_NUMBER already marked ready - continuing to record"
-  else
-    # Draft exists - present it for review
-    echo "Found existing draft PR #$PR_NUMBER"
-  fi
-else
-  # No PR exists - create draft
+# If no PR exists, create draft
+if [ -z "$PR_NUMBER" ]; then
   git push -u origin $BRANCH
   gh pr create --repo $ORG_REPO --draft \
     --head "$FORK_OWNER:$BRANCH" \
     --title "<title>" --body "<body>"
   PR_URL=$(gh pr view --repo $ORG_REPO --json url --jq '.url')
+  PR_NUMBER=$(gh pr view --repo $ORG_REPO --json number --jq '.number')
+  IS_DRAFT=true
 fi
 ```
+
+This sets: `PR_NUMBER`, `IS_DRAFT`, `PR_URL`, `BRANCH`, `FORK_OWNER`
+
+**Requires**: `ORG_REPO` must be set.
 
 GitHub is the source of truth for PR state.
 
@@ -824,41 +765,14 @@ Approve to mark PR ready for maintainer review.
 **First, check CI status** before marking PR ready:
 
 ```bash
-# Get CI status from PR
-CHECKS=$(gh pr view $PR_NUMBER --repo $ORG_REPO --json statusCheckRollup)
-PENDING=$(echo "$CHECKS" | jq '[.statusCheckRollup[] | select(.status == "COMPLETED" | not)] | length')
-FAILED=$(echo "$CHECKS" | jq '[.statusCheckRollup[] | select(.conclusion == "FAILURE")] | length')
-
-# If checks still running, wait and poll
-while [ "$PENDING" -gt 0 ]; do
-  echo "CI still running ($PENDING checks pending). Waiting 30s..."
-  sleep 30
-  CHECKS=$(gh pr view $PR_NUMBER --repo $ORG_REPO --json statusCheckRollup)
-  PENDING=$(echo "$CHECKS" | jq '[.statusCheckRollup[] | select(.status == "COMPLETED" | not)] | length')
-done
-
-# Re-check for failures after completion
-FAILED=$(echo "$CHECKS" | jq '[.statusCheckRollup[] | select(.conclusion == "FAILURE")] | length')
+source "$SKILL_DIR/resources/scripts/ci-status-check.sh"
 ```
 
-**If CI failed**, check if failures are pre-existing on main:
+This sets: `FAILED`, `PRE_EXISTING`, `PENDING`
 
-```bash
-if [ "$FAILED" -gt 0 ]; then
-  # Get names of failed checks
-  FAILED_NAMES=$(echo "$CHECKS" | jq '[.statusCheckRollup[] | select(.conclusion == "FAILURE") | .name]')
+**Requires**: `PR_NUMBER`, `ORG_REPO`, and `DEFAULT_BRANCH` must be set.
 
-  # Get failures on main/default branch
-  MAIN_FAILURES=$(gh api repos/$ORG_REPO/commits/$DEFAULT_BRANCH/check-runs --jq '[.check_runs[] | select(.conclusion == "failure") | .name]')
-
-  # Check if all PR failures also fail on main (pre-existing)
-  PRE_EXISTING=$(jq -n --argjson pr "$FAILED_NAMES" --argjson main "$MAIN_FAILURES" '($pr - $main) | length == 0')
-
-  if [ "$PRE_EXISTING" = "true" ]; then
-    echo "CI failures are pre-existing on $DEFAULT_BRANCH (not caused by this PR)"
-  fi
-fi
-```
+The script polls CI every 30 seconds while checks are pending, then checks if any failures are pre-existing on the default branch.
 
 Present CI status to user:
 ```
