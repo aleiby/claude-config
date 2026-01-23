@@ -1008,26 +1008,10 @@ gt mol status                # Should show "Nothing on hook"
 Use after compaction, handoff, or session restart to continue an in-progress tackle.
 
 **What it does:**
-
-1. **Output recovery banner** (ensures command survives future compaction)
-2. **Run Resumption Protocol:**
-   ```bash
-   bd --no-daemon mol current   # Get molecule state and current step
-   gt mol status                # Check hook attachment
-   ```
-3. **Re-attach if needed:**
-   ```bash
-   # If gt mol status shows "No molecule attached" but bd mol current shows one:
-   MOL_ID="<from bd mol current output>"
-   gt mol attach "$MOL_ID"
-   ```
-4. **Claim current step if not assigned:**
-   ```bash
-   STEP_ID="<current step from bd mol current>"
-   bd update "$STEP_ID" --status=in_progress --assignee="$BD_ACTOR"
-   ```
-5. **Load appropriate resource** for current step (see Resource Loading table)
-6. **Continue execution** from current step
+1. Output recovery banner (ensures command survives future compaction)
+2. Run the **Resumption Protocol** (see top of this file)
+3. Load appropriate resource for current step
+4. Continue execution
 
 **When to use:**
 - After `/compact`
@@ -1114,31 +1098,4 @@ Branch: <branch-name>
 
 ### Resuming After Handoff
 
-1. Check molecule status: `bd --no-daemon mol current`
-2. Check for existing PR: `gh pr list --head <branch-name>`
-3. If PR exists, don't recreate - just continue from current step
-4. Load the appropriate resource for the current step
-
-### Compaction Recovery
-
-**CRITICAL**: If your hook is empty after compaction but you were working on a tackle:
-
-```bash
-# 1. Check for orphaned tackle molecules
-bd list --label=formula:tackle --status=open --json | jq '.[] | {id, title, status}'
-
-# 2. If molecule found, check its state
-bd show <molecule-id>
-
-# 3. Re-attach molecule to your hook
-gt mol attach <molecule-id>
-
-# 4. Verify and resume
-gt hook
-bd ready --parent <molecule-id>
-```
-
-You can also find your molecule via the source issue (linked via parent-child):
-```bash
-bd show <issue-id>
-```
+Run `/tackle --resume` - it handles molecule re-attachment and state recovery.
