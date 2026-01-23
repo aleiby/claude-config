@@ -44,10 +44,11 @@ MOL_ID=$(echo "$HOOK_JSON" | jq -r '.attached_molecule')
 # Get upstream from issue bead notes (stored before slinging)
 ORG_REPO=$(bd show "$ISSUE_ID" --json | jq -r '.[0].notes' | grep -oP 'upstream: \K[^\s]+')
 
-# If upstream not in notes, detect from git remote
+# Upstream must be in notes (stored by Step 3 before slinging)
 if [ -z "$ORG_REPO" ]; then
-  UPSTREAM_URL=$(git remote get-url upstream 2>/dev/null || git remote get-url origin)
-  ORG_REPO=$(echo "$UPSTREAM_URL" | sed -E 's#.*github.com[:/]##' | sed 's/\.git$//')
+  echo "ERROR: No upstream found in issue notes. Was this tackle started correctly?"
+  echo "Fix: bd update $ISSUE_ID --notes 'upstream: <org/repo>'"
+  exit 1
 fi
 
 # Show current step
@@ -226,6 +227,21 @@ if [ -z "$ORG_REPO" ] || [ "$ORG_REPO" = "$UPSTREAM_URL" ]; then
   echo "ERROR: Could not parse org/repo from URL: $UPSTREAM_URL"
   echo "Expected GitHub URL format (https or ssh)"
   exit 1
+fi
+
+# If we fell back to origin, check if it's a fork and use parent instead
+if [ "$UPSTREAM_REMOTE" = "origin" ]; then
+  PARENT_REPO=$(gh api repos/$ORG_REPO --jq '.parent.full_name // empty' 2>/dev/null)
+  if [ -n "$PARENT_REPO" ]; then
+    echo "Detected fork: $ORG_REPO is a fork of $PARENT_REPO"
+    echo "Using upstream: $PARENT_REPO"
+    ORG_REPO="$PARENT_REPO"
+    # Add the upstream remote for future use
+    git remote add upstream "https://github.com/$PARENT_REPO.git" 2>/dev/null || true
+    git fetch upstream 2>/dev/null || true
+    UPSTREAM_REMOTE="upstream"
+    UPSTREAM_URL="https://github.com/$PARENT_REPO.git"
+  fi
 fi
 
 # Detect default branch
@@ -722,9 +738,8 @@ fi
 # Recover ORG_REPO from issue bead notes (stored before slinging)
 ORG_REPO=$(bd show "$ISSUE_ID" --json | jq -r '.[0].notes' | grep -oP 'upstream: \K[^\s]+' || echo "")
 if [ -z "$ORG_REPO" ]; then
-  # Fallback: re-detect from git remote (see "Detect Upstream" section)
-  UPSTREAM_URL=$(git remote get-url upstream 2>/dev/null || git remote get-url fork-source 2>/dev/null || git remote get-url origin 2>/dev/null)
-  ORG_REPO=$(echo "$UPSTREAM_URL" | sed -E 's#.*github.com[:/]##' | sed 's/\.git$//')
+  echo "ERROR: No upstream found in issue notes. Was this tackle started correctly?"
+  exit 1
 fi
 
 # Recover DEFAULT_BRANCH
