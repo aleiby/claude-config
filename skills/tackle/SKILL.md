@@ -450,6 +450,16 @@ cp "$FORMULA_SRC" "$TOWN_FORMULAS/tackle.formula.toml"
 
 #### 10. Create Molecule (only if proceeding)
 
+**⚠️ PRE-FLIGHT CHECKLIST - Do not proceed until all items are checked:**
+
+Before creating the molecule, verify you completed these steps:
+
+- [ ] **Step 6 (Pending PR Check)** - Sucessfully ran PR-CHECK sub-agent to clean up stale submissions
+- [ ] **Step 7 (Issue Research)** - Successfully ran ISSUE-RESEARCH sub-agent to check for existing work
+- [ ] **Step 8 (Existing Work Decision)** - If existing work found, user confirmed to proceed
+
+If you skipped any of these, **STOP and go back to the associated step(s)**. Duplicating work wastes maintainer time and may get your PR rejected. The sub-agents exist to offload this research from your context - use them.
+
 ```bash
 # Create molecule and capture ID (requires --no-daemon)
 # Note: mol pour outputs "Root issue: <id>" - parse that line
@@ -465,6 +475,9 @@ fi
 
 # Add formula label for pattern detection
 bd update "$MOL_ID" --add-label "formula:tackle"
+
+# Set molecule to in_progress so child steps can start
+bd update "$MOL_ID" --status=in_progress
 
 # Link source issue to molecule (bd show <issue> will show parent)
 bd update "$ISSUE_ID" --parent "$MOL_ID"
@@ -705,7 +718,15 @@ When entering gate-submit, FIRST check if a draft PR already exists:
 
 ```bash
 BRANCH=$(git branch --show-current)
-FORK_OWNER=$(gh repo view --json owner --jq '.owner.login')
+
+# Get fork owner from origin remote URL (NOT gh repo view, which returns upstream owner)
+ORIGIN_URL=$(git remote get-url origin 2>/dev/null)
+FORK_OWNER=$(echo "$ORIGIN_URL" | sed -E 's#.*github.com[:/]([^/]+)/.*#\1#')
+if [ -z "$FORK_OWNER" ]; then
+  echo "ERROR: Could not determine fork owner from origin remote"
+  exit 1
+fi
+
 PR_JSON=$(gh pr list --repo $ORG_REPO --head "$FORK_OWNER:$BRANCH" --json number,isDraft,url --jq '.[0]')
 
 if [ -n "$PR_JSON" ]; then
