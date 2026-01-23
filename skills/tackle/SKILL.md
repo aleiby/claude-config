@@ -779,12 +779,14 @@ Draft PR for <issue-id>:
   - Isolation: PASSED (single concern)
   - Rebased: Yes, on upstream default branch
 
-Approve to mark PR ready for maintainer review.
+Approve to check CI and mark PR ready for maintainer review.
 ```
 
 ### On Approve
 
-**First, check CI status** before marking PR ready:
+**⚠️ MANDATORY: Wait for CI to complete before marking PR ready.**
+
+Do NOT run `gh pr ready` until CI finishes. Use ci-status-check.sh which polls until complete:
 
 ```bash
 source "$SKILL_DIR/resources/scripts/ci-status-check.sh"

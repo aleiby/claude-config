@@ -8,9 +8,18 @@ Mark the draft PR as ready for review after gate-submit approval.
 
 ## Pre-Submit Checklist
 
-Before this phase, verify gate-submit was approved (check that it's closed).
+Before this phase, verify:
+1. gate-submit step is closed (was approved)
+2. **CI completed successfully** (checked via ci-status-check.sh in gate-submit)
 
-**Do not submit without approval.**
+**⚠️ NEVER mark a PR ready if CI is still running or has failures.**
+
+If you're unsure about CI status, check it now:
+```bash
+gh pr view $PR_NUMBER --repo $ORG_REPO --json statusCheckRollup --jq '.statusCheckRollup[] | "\(.name): \(.conclusion // "PENDING")"'
+```
+
+All checks must show SUCCESS or be known pre-existing failures. If any show PENDING, wait.
 
 ## Mark PR Ready
 
