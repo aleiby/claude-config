@@ -17,6 +17,7 @@ This document defines test cases for validating the tackle bash scripts.
 | **record-pr-stats.sh** | Calculate diff stats, update issue<br>@ *Submit phase (Record)* | → `ISSUE_ID`, `PR_URL`, `UPSTREAM_REF`<br>← `FILES_CHANGED`, `LINES_CHANGED` |
 | **query-friction.sh** | Query molecules for friction patterns<br>@ *Reflect phase* | → (none)<br>← JSON output |
 | **report-problem.sh** | Report tackle problem to mayor via mail<br>@ *When Things Go Wrong* | → `SKILL_DIR`, `STEP`, `ERROR_DESC`, `ERROR_MSG` (opt)<br>← (sends mail) |
+| **env-check.sh** | Validate required env vars (BD_ACTOR, SKILL_DIR)<br>@ *Resumption Protocol* | → (reads env)<br>← (exits 1 if missing) |
 
 ---
 
@@ -232,6 +233,39 @@ if echo "$REPORT_OUT" | grep -q "ERROR.*STEP"; then
   test_pass "Missing STEP error"
 else
   test_fail "Missing STEP error" "Got: $REPORT_OUT"
+fi
+
+echo ""
+echo "=== env-check.sh ==="
+
+# Test 17: Missing BD_ACTOR (should error)
+unset BD_ACTOR
+export SKILL_DIR="$SCRIPT_DIR/.."
+ENV_OUT=$(bash "$SCRIPT_DIR/env-check.sh" 2>&1 || true)
+if echo "$ENV_OUT" | grep -q "Missing required" && echo "$ENV_OUT" | grep -q "BD_ACTOR"; then
+  test_pass "Missing BD_ACTOR error"
+else
+  test_fail "Missing BD_ACTOR error" "Got: $ENV_OUT"
+fi
+
+# Test 18: Missing SKILL_DIR (should error)
+unset SKILL_DIR
+export BD_ACTOR="test/actor"
+ENV_OUT=$(bash "$SCRIPT_DIR/env-check.sh" 2>&1 || true)
+if echo "$ENV_OUT" | grep -q "Missing required" && echo "$ENV_OUT" | grep -q "SKILL_DIR"; then
+  test_pass "Missing SKILL_DIR error"
+else
+  test_fail "Missing SKILL_DIR error" "Got: $ENV_OUT"
+fi
+
+# Test 19: All vars set (should pass)
+export BD_ACTOR="test/actor"
+export SKILL_DIR="$SCRIPT_DIR/.."
+ENV_OUT=$(bash "$SCRIPT_DIR/env-check.sh" 2>&1)
+if echo "$ENV_OUT" | grep -q "Environment OK"; then
+  test_pass "All env vars present"
+else
+  test_fail "All env vars present" "Got: $ENV_OUT"
 fi
 
 echo ""

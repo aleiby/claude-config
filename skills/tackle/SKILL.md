@@ -72,6 +72,18 @@ SKILL_DIR="<path-to-tackle-skill-directory>"  # Set this based on where you load
 
 All subsequent `source` commands use `$SKILL_DIR`. Preserve this variable throughout the tackle session.
 
+### Environment Check
+
+Verify required environment variables are set (especially after compaction):
+
+```bash
+source "$SKILL_DIR/resources/scripts/env-check.sh"
+```
+
+**Checks**: `BD_ACTOR` (built-in), `SKILL_DIR` (set above)
+
+**If BD_ACTOR is missing**: This may be a compaction bug. Report to mayor.
+
 ### Context Recovery
 
 Recover all variables needed for tackle execution:
@@ -490,6 +502,10 @@ bd update "$MOL_ID" --add-label "formula:tackle"
 # Use gt hook data directly (more reliable than bd ready --parent)
 FIRST_STEP=$(echo "$HOOK_JSON" | jq -r '.progress.ready_steps[0] // empty')
 if [ -n "$FIRST_STEP" ]; then
+  if [ -z "${BD_ACTOR:-}" ]; then
+    echo "ERROR: BD_ACTOR not set. Run env-check.sh first, or report to mayor."
+    exit 1
+  fi
   bd update "$FIRST_STEP" --status=in_progress --assignee "$BD_ACTOR"
 fi
 ```
