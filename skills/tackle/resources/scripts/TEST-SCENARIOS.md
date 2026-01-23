@@ -6,19 +6,19 @@ This document defines test cases for validating the tackle bash scripts.
 
 | Script | Purpose <br> @ Called From | → Inputs <br> ← Outputs |
 |--------|----------------------|------------------|
-| **detect-upstream.sh** | Detect git remote, extract org/repo<br>@ *Step 2 (Research)* | → (none - reads git config)<br>← `UPSTREAM_REMOTE`, `UPSTREAM_URL`, `ORG_REPO`, `DEFAULT_BRANCH`, `UPSTREAM_REF` |
 | **cache-freshness.sh** | Check cache validity (24h threshold)<br>@ *Step 3 (Cache Check)* | → `ORG_REPO`<br>← `CACHE_BEAD`, `CACHE_FRESH` |
-| **context-recovery.sh** | Recover IDs after session restart<br>@ *Step 10 (Context Recovery)* | → (none - reads gt hook)<br>← `ISSUE_ID`, `MOL_ID`, `ORG_REPO` |
+| **ci-status-check.sh** | Poll CI, detect pre-existing failures<br>@ *gate-submit* | → `PR_NUMBER`, `ORG_REPO`, `DEFAULT_BRANCH`<br>← `FAILED`, `PRE_EXISTING`, `PENDING` |
 | **claim-step.sh** | Claim ownership of current molecule step<br>@ *Step 1 (Claim Step)* | → `MOL_ID`<br>← `STEP_ID` |
 | **complete-step.sh** | Close step, claim next with fallback<br>@ *After each step* | → `STEP_ID`, `MOL_ID`<br>← `NEXT_STEP` |
-| **pr-check-idempotent.sh** | Check if draft PR already exists<br>@ *gate-submit* | → `ORG_REPO`<br>← `PR_NUMBER`, `IS_DRAFT`, `PR_URL`, `BRANCH`, `FORK_OWNER` |
-| **ci-status-check.sh** | Poll CI, detect pre-existing failures<br>@ *gate-submit* | → `PR_NUMBER`, `ORG_REPO`, `DEFAULT_BRANCH`<br>← `FAILED`, `PRE_EXISTING`, `PENDING` |
-| **verify-pr-ready.sh** | Verify PR is no longer draft<br>@ *Submit phase* | → `PR_NUMBER`, `ORG_REPO`<br>← `IS_DRAFT`, `PR_STATE`, `PR_URL` |
-| **record-pr-stats.sh** | Calculate diff stats, update issue<br>@ *Submit phase (Record)* | → `ISSUE_ID`, `PR_URL`, `UPSTREAM_REF`<br>← `FILES_CHANGED`, `LINES_CHANGED` |
-| **query-friction.sh** | Query molecules for friction patterns<br>@ *Reflect phase* | → (none)<br>← JSON output |
-| **report-problem.sh** | Report tackle problem to mayor via mail<br>@ *When Things Go Wrong* | → `SKILL_DIR`, `STEP`, `ERROR_DESC`, `ERROR_MSG` (opt)<br>← (sends mail) |
+| **context-recovery.sh** | Recover IDs after session restart<br>@ *Step 10 (Context Recovery)* | → (none - reads gt hook)<br>← `ISSUE_ID`, `MOL_ID`, `ORG_REPO` |
+| **detect-upstream.sh** | Detect git remote, extract org/repo<br>@ *Step 2 (Research)* | → (none - reads git config)<br>← `UPSTREAM_REMOTE`, `UPSTREAM_URL`, `ORG_REPO`, `DEFAULT_BRANCH`, `UPSTREAM_REF` |
 | **env-check.sh** | Validate required env vars (BD_ACTOR, SKILL_DIR)<br>@ *Resumption Protocol* | → (reads env)<br>← (exits 1 if missing) |
+| **pr-check-idempotent.sh** | Check if draft PR already exists<br>@ *gate-submit* | → `ORG_REPO`<br>← `PR_NUMBER`, `IS_DRAFT`, `PR_URL`, `BRANCH`, `FORK_OWNER` |
+| **query-friction.sh** | Query molecules for friction patterns<br>@ *Reflect phase* | → (none)<br>← JSON output |
+| **record-pr-stats.sh** | Calculate diff stats, update issue<br>@ *Submit phase (Record)* | → `ISSUE_ID`, `PR_URL`, `UPSTREAM_REF`<br>← `FILES_CHANGED`, `LINES_CHANGED` |
+| **report-problem.sh** | Report tackle problem to mayor via mail<br>@ *When Things Go Wrong* | → `SKILL_DIR`, `STEP`, `ERROR_DESC`, `ERROR_MSG` (opt)<br>← (sends mail) |
 | **sling-tackle.sh** | Sling formula, fix step parenting, claim first step<br>@ *Step 9 (Sling)* | → `ISSUE_ID`, `ORG_REPO`, `BD_ACTOR`<br>← `MOL_ID`, `FIRST_STEP` |
+| **verify-pr-ready.sh** | Verify PR is no longer draft<br>@ *Submit phase* | → `PR_NUMBER`, `ORG_REPO`<br>← `IS_DRAFT`, `PR_STATE`, `PR_URL` |
 
 ---
 
