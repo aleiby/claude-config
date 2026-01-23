@@ -4,6 +4,8 @@ Upstream-aware issue implementation workflow with approval gates.
 Tracks work from initial research through PR submission. Each step is a
 checkpoint that survives session restarts. Gates require explicit approval.
 
+⚠️ Run `/tackle --resume` to load full guidance for the current step.
+
 Usage: gt sling <issue-bead> --on tackle
 
 Context is read from the bonded bead:
@@ -11,13 +13,13 @@ Context is read from the bonded bead:
 - Upstream: stored in bead notes before slinging (grep 'upstream:')
 """
 formula = "tackle"
-version = 3
+version = 4
 
 [[steps]]
 id = "plan"
 title = "Create implementation plan"
 description = """
-See <skill-dir>/resources/IMPLEMENT.md Plan Phase.
+Run `/tackle --resume plan` for full guidance.
 
 Create implementation plan based on:
 - Issue requirements
@@ -34,7 +36,8 @@ description = """
 
 Present plan to user. Wait for explicit approval.
 DO NOT PROCEED WITHOUT APPROVAL.
-See <skill-dir>/SKILL.md gate-plan section.
+
+Run `/tackle --resume gate-plan` for gate protocol.
 """
 
 [[steps]]
@@ -42,7 +45,7 @@ id = "branch"
 title = "Create clean branch"
 needs = ["gate-plan"]
 description = """
-See <skill-dir>/resources/IMPLEMENT.md Branch Phase.
+Run `/tackle --resume branch` for full guidance.
 """
 
 [[steps]]
@@ -50,7 +53,7 @@ id = "implement"
 title = "Implement solution"
 needs = ["branch"]
 description = """
-See <skill-dir>/resources/IMPLEMENT.md Implement Phase.
+Run `/tackle --resume implement` for full guidance.
 
 Implement following upstream conventions.
 Commit atomically with conventional commit messages.
@@ -61,7 +64,7 @@ id = "validate"
 title = "Validate implementation"
 needs = ["implement"]
 description = """
-See <skill-dir>/resources/VALIDATION.md.
+Run `/tackle --resume validate` for full guidance.
 
 - Run tests
 - Check isolation (single concern)
@@ -87,7 +90,8 @@ Show full PR preview:
 
 Wait for explicit approval.
 DO NOT MARK PR READY WITHOUT APPROVAL.
-See <skill-dir>/SKILL.md gate-submit section.
+
+Run `/tackle --resume gate-submit` for gate protocol.
 """
 
 [[steps]]
@@ -95,7 +99,7 @@ id = "submit"
 title = "Submit PR"
 needs = ["gate-submit"]
 description = """
-See <skill-dir>/resources/SUBMIT.md.
+Run `/tackle --resume submit` for full guidance.
 
 Only after explicit approval:
 1. Mark draft PR as ready for review: gh pr ready
@@ -107,7 +111,7 @@ id = "record"
 title = "Record outcome"
 needs = ["submit"]
 description = """
-See <skill-dir>/resources/SUBMIT.md Record Phase.
+Run `/tackle --resume record` for full guidance.
 
 Track PR URL and outcome for future learning.
 Update local issue with PR link.
@@ -118,7 +122,7 @@ id = "reflect"
 title = "Reflect"
 needs = ["record"]
 description = """
-See <skill-dir>/resources/REFLECT.md.
+Run `/tackle --resume reflect` for full guidance.
 
 Reflect on issues tackle could help prevent in future runs.
 

@@ -14,12 +14,13 @@ user-invocable: true
 ## Quick Reference
 
 ```
-/tackle <issue>       Start working on issue
-/tackle --resume      Continue after compaction/restart
-/tackle --status      Show current state
-/tackle --abort       Abandon tackle, clean up
-/tackle --refresh     Force refresh upstream research
-/tackle --help        Show this help
+/tackle <issue>         Start working on issue
+/tackle --resume        Continue after compaction/restart (auto-detects step)
+/tackle --resume <step> Load guidance for specific step (plan, implement, validate, etc.)
+/tackle --status        Show current state
+/tackle --abort         Abandon tackle, clean up
+/tackle --refresh       Force refresh upstream research
+/tackle --help          Show this help
 ```
 
 When user asks for help, show this Quick Reference section.
@@ -976,20 +977,23 @@ gt hook                      # Should show "Nothing on hook"
 └─────────────────────────────────────────────────────────┘
 ```
 
-### Resuming (`/tackle --resume`)
+### Resuming (`/tackle --resume [step]`)
 
 Use after compaction, handoff, or session restart to continue an in-progress tackle.
 
 **What it does:**
 1. Run the **Resumption Protocol** (see top of this file)
-2. Load appropriate resource for current step
+2. Load resource for the specified step (or auto-detect from `bd mol current`)
 3. Continue execution
+
+**Step names:** plan, gate-plan, branch, implement, validate, gate-submit, submit, record, reflect
 
 **When to use:**
 - After `/compact`
 - After `gt handoff` brings you back
 - When starting a new session with work on hook
 - When confused about tackle state
+- When the formula step says "Run `/tackle --resume <step>`"
 
 ### Aborting (`/tackle --abort`)
 
@@ -1025,21 +1029,26 @@ The issue returns to ready state for future work.
 
 Resources are in the `resources/` folder relative to this SKILL.md file.
 
-When you loaded this skill, note the directory path. Resources are at:
+**Step to resource mapping:**
 
-**Phase resources (main agent loads as needed):**
-- `<skill-dir>/resources/IMPLEMENT.md`
-- `<skill-dir>/resources/VALIDATION.md`
-- `<skill-dir>/resources/SUBMIT.md`
-- `<skill-dir>/resources/REFLECT.md`
-- `<skill-dir>/resources/tackle.formula.toml`
+| Step | Resource |
+|------|----------|
+| plan | IMPLEMENT.md (Plan Phase section) |
+| gate-plan | This file (gate-plan section below) |
+| branch | IMPLEMENT.md (Branch Phase section) |
+| implement | IMPLEMENT.md (Implement Phase section) |
+| validate | VALIDATION.md |
+| gate-submit | This file (gate-submit section below) |
+| submit | SUBMIT.md |
+| record | SUBMIT.md (Record Phase section) |
+| reflect | REFLECT.md |
 
 **Sub-agent resources (sub-agents load their own):**
 - `<skill-dir>/resources/subagents/PROJECT-RESEARCH.md`
 - `<skill-dir>/resources/subagents/ISSUE-RESEARCH.md`
 - `<skill-dir>/resources/subagents/PR-CHECK.md`
 
-Only load the resource needed for the current phase to minimize context.
+Only load the resource needed for the current step to minimize context.
 
 ## Session Handoff
 
