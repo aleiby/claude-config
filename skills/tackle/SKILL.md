@@ -784,18 +784,15 @@ Approve to check CI and mark PR ready for maintainer review.
 
 ### On Approve
 
-**⚠️ MANDATORY: You MUST run ci-status-check.sh and wait for it to complete.**
+**⚠️ MANDATORY: Wait for CI to complete before marking PR ready.**
 
-Do NOT skip this script. Do NOT manually check status and proceed. The script polls every 30 seconds until ALL checks complete:
+Do NOT run `gh pr ready` until CI finishes. Use ci-status-check.sh which polls until complete:
 
 ```bash
-# REQUIRED - do not skip or substitute with manual status checks
 source "$SKILL_DIR/resources/scripts/ci-status-check.sh"
 ```
 
 This sets: `FAILED`, `PRE_EXISTING`, `PENDING`
-
-**NEVER mark PR ready if PENDING > 0.** The script waits for pending checks to finish - let it run.
 
 **Requires**: `PR_NUMBER`, `ORG_REPO`, and `DEFAULT_BRANCH` must be set.
 

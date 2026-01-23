@@ -12,14 +12,9 @@ Before this phase, verify:
 1. gate-submit step is closed (was approved)
 2. **CI completed successfully** (checked via ci-status-check.sh in gate-submit)
 
-**⚠️ CRITICAL: If you did not run ci-status-check.sh in gate-submit, STOP NOW and run it.**
+**⚠️ NEVER mark a PR ready if CI is still running or has new failures.**
 
-The script is MANDATORY, not optional. Do NOT:
-- Skip the script and manually check status
-- Mark PR ready while any checks show PENDING
-- Assume CI will pass
-
-If you're unsure whether you ran the script, check it now:
+If you're unsure about CI status, check it now:
 ```bash
 gh pr view $PR_NUMBER --repo $ORG_REPO --json statusCheckRollup --jq '.statusCheckRollup[] | "\(.name): \(.conclusion // "PENDING")"'
 ```
