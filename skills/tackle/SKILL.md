@@ -31,23 +31,18 @@ When user asks for help, show this Quick Reference section.
 This ensures the recovery instruction survives compaction (CLAUDE.md is reloaded after compact).
 
 ```bash
-# Marker for cleanup - do not change this format
+# Define message once - do not change format (cleanup depends on it)
 TACKLE_MARKER="## ⚠️ TACKLE IN PROGRESS"
+TACKLE_INSTRUCTION="Run \`/tackle --resume\` to continue."
+TACKLE_MESSAGE="$TACKLE_MARKER
 
-# Create or append to CLAUDE.md
+$TACKLE_INSTRUCTION"
+
+# Create or append to CLAUDE.md (idempotent)
 if [ ! -f CLAUDE.md ]; then
-  cat > CLAUDE.md << 'EOF'
-## ⚠️ TACKLE IN PROGRESS
-
-Run `/tackle --resume` to continue.
-EOF
+  echo "$TACKLE_MESSAGE" > CLAUDE.md
 elif ! grep -q "$TACKLE_MARKER" CLAUDE.md; then
-  cat >> CLAUDE.md << 'EOF'
-
-## ⚠️ TACKLE IN PROGRESS
-
-Run `/tackle --resume` to continue.
-EOF
+  echo -e "\n$TACKLE_MESSAGE" >> CLAUDE.md
 fi
 ```
 
@@ -55,18 +50,15 @@ fi
 
 ```bash
 TACKLE_MARKER="## ⚠️ TACKLE IN PROGRESS"
+TACKLE_INSTRUCTION="Run \`/tackle --resume\` to continue."
 
 if [ -f CLAUDE.md ] && grep -q "$TACKLE_MARKER" CLAUDE.md; then
-  # Remove the tackle section (marker + blank line + instruction + blank line)
-  sed -i '/^## ⚠️ TACKLE IN PROGRESS$/,/^Run `\/tackle --resume` to continue\.$/d' CLAUDE.md
-  # Remove any trailing blank lines
-  sed -i -e :a -e '/^\s*$/{ $d; N; ba; }' CLAUDE.md
-  # Remove any leading blank lines
-  sed -i '/./,$!d' CLAUDE.md
-  # If file is now empty, delete it
-  if [ ! -s CLAUDE.md ]; then
-    rm CLAUDE.md
-  fi
+  # Remove the tackle section (marker line through instruction line)
+  sed -i "/^${TACKLE_MARKER//\//\\/}$/,/^${TACKLE_INSTRUCTION//\//\\/}$/d" CLAUDE.md
+  # Remove leading/trailing blank lines
+  sed -i -e :a -e '/^\s*$/{ $d; N; ba; }' -e '/./,$!d' CLAUDE.md
+  # Delete file if empty
+  [ ! -s CLAUDE.md ] && rm CLAUDE.md
 fi
 ```
 
@@ -1026,12 +1018,12 @@ bd close "$MOL_ID" --reason "Tackle complete - PR submitted"
 bd --no-daemon mol current   # Should show "No molecules in progress"
 gt mol status                # Should show "Nothing on hook"
 
-# 4. CRITICAL: Clean up CLAUDE.md (see COMPACTION RECOVERY section for full script)
+# 4. CRITICAL: Clean up CLAUDE.md (see COMPACTION RECOVERY section)
 TACKLE_MARKER="## ⚠️ TACKLE IN PROGRESS"
+TACKLE_INSTRUCTION="Run \`/tackle --resume\` to continue."
 if [ -f CLAUDE.md ] && grep -q "$TACKLE_MARKER" CLAUDE.md; then
-  sed -i '/^## ⚠️ TACKLE IN PROGRESS$/,/^Run `\/tackle --resume` to continue\.$/d' CLAUDE.md
-  sed -i -e :a -e '/^\s*$/{ $d; N; ba; }' CLAUDE.md
-  sed -i '/./,$!d' CLAUDE.md
+  sed -i "/^${TACKLE_MARKER//\//\\/}$/,/^${TACKLE_INSTRUCTION//\//\\/}$/d" CLAUDE.md
+  sed -i -e :a -e '/^\s*$/{ $d; N; ba; }' -e '/./,$!d' CLAUDE.md
   [ ! -s CLAUDE.md ] && rm CLAUDE.md
 fi
 ```
@@ -1080,13 +1072,13 @@ To abandon a tackle mid-workflow:
    bd update "$ISSUE_ID" --status=open --notes="Tackle aborted"
    ```
 
-4. **Clean up CLAUDE.md**:
+4. **Clean up CLAUDE.md** (see COMPACTION RECOVERY section):
    ```bash
    TACKLE_MARKER="## ⚠️ TACKLE IN PROGRESS"
+   TACKLE_INSTRUCTION="Run \`/tackle --resume\` to continue."
    if [ -f CLAUDE.md ] && grep -q "$TACKLE_MARKER" CLAUDE.md; then
-     sed -i '/^## ⚠️ TACKLE IN PROGRESS$/,/^Run `\/tackle --resume` to continue\.$/d' CLAUDE.md
-     sed -i -e :a -e '/^\s*$/{ $d; N; ba; }' CLAUDE.md
-     sed -i '/./,$!d' CLAUDE.md
+     sed -i "/^${TACKLE_MARKER//\//\\/}$/,/^${TACKLE_INSTRUCTION//\//\\/}$/d" CLAUDE.md
+     sed -i -e :a -e '/^\s*$/{ $d; N; ba; }' -e '/./,$!d' CLAUDE.md
      [ ! -s CLAUDE.md ] && rm CLAUDE.md
    fi
    ```
