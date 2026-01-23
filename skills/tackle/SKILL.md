@@ -58,6 +58,13 @@ source "$SKILL_DIR/resources/scripts/report-problem.sh"
 
 ## Resumption Protocol (ALWAYS FIRST)
 
+**⚠️ AFTER COMPACTION: Run `/tackle --resume`, do NOT continue manually from summary.**
+
+The compaction summary may say "continue where you left off" but you MUST re-invoke the skill to:
+- Reload this SKILL.md (you're reading it now because you did this right)
+- Recover state variables (SKILL_DIR, MOL_ID, STEP_ID, etc.)
+- Get proper step guidance from resource files
+
 **When to run this:** After session restart (compaction, handoff, new terminal), or when checking status with `/tackle --status`. This ensures you have accurate state before taking any action.
 
 **NEVER trust summary alone. State is truth.**
@@ -538,7 +545,7 @@ See Resource Loading table above for which resource file to load.
 | `validate` | Run tests, check isolation |
 | `gate-submit` | **STOP** - Wait for submit approval |
 | `submit` | Mark draft PR ready for review |
-| `record` | Update local issue with PR link |
+| `record` | Update local issue with PR link (MUST source record-pr-stats.sh) |
 | `reflect` | Reflect on skill issues (see Reflect section) |
 
 ### Completing Steps
@@ -924,9 +931,13 @@ else
   bd close "$MOL_ID" --reason "Tackle complete - PR submitted"
 fi
 
-# 3. Verify cleanup
+# 3. Verify molecule closed
 bd --no-daemon mol current   # Should show "No molecules in progress"
-gt hook                      # Should show "Nothing on hook"
+
+# 4. Unhook the issue (frees your hook for other work)
+# The issue stays in "deferred" status until PR outcome - that's correct.
+# But you can work on other things while waiting for maintainer review.
+gt unhook --force
 ```
 
 **OUTPUT THIS BANNER when tackle completes:**
