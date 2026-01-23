@@ -14,8 +14,12 @@
 # Side effects:
 #   - Updates issue with upstream context
 #   - Slings tackle formula (creates molecule, hooks issue)
-#   - Fixes molecule step parenting (workaround for bd-69d7, bd-v29h)
 #   - Claims first step with current actor
+#
+# Known issues (bd-69d7, bd-v29h):
+#   Steps are linked via BLOCKING deps instead of parent-child.
+#   bd update --parent doesn't work on wisps, so we can't fix this.
+#   Use gt hook --json or bd dep list --type=blocks to find steps.
 #
 # Errors: Exits 1 with guidance if sling fails or BD_ACTOR not set
 
@@ -52,21 +56,6 @@ fi
 HOOK_JSON=$(gt hook --json)
 MOL_ID=$(echo "$HOOK_JSON" | jq -r '.attached_molecule')
 echo "Tackle started: $MOL_ID"
-
-# WORKAROUND: Fix molecule step parenting (remove when bd-69d7 and bd-v29h are fixed)
-# Bug bd-69d7: gt sling --on adds root molecule as BLOCKING dep instead of parent-child
-# Bug bd-v29h: Steps have null parent_id, only linked via that spurious blocking dep
-STEP_IDS=$(bd dep list "$MOL_ID" --direction=up --type=blocks --json 2>/dev/null | jq -r '.[].id // empty')
-if [ -n "$STEP_IDS" ]; then
-  for STEP_ID in $STEP_IDS; do
-    # Create proper parent-child relationship
-    bd update "$STEP_ID" --parent "$MOL_ID" 2>/dev/null || true
-  done
-  # Now safe to remove spurious blocking dependencies
-  for STEP_ID in $STEP_IDS; do
-    bd dep remove "$STEP_ID" "$MOL_ID" 2>/dev/null || true
-  done
-fi
 
 # Add formula label for pattern detection in reflect phase
 bd update "$MOL_ID" --add-label "formula:tackle"

@@ -12,8 +12,9 @@
 #
 # Notes:
 #   - Closes STEP_ID with --continue flag
-#   - Claims next step with fallback to bd list if bd ready returns empty
+#   - Claims next step via gt hook (primary) or bd dep list (fallback)
 #   - The assignee update is required because bd mol current filters by assignee
+#   - Uses blocking deps to find steps (workaround for bd-69d7, bd-v29h)
 
 set -euo pipefail
 
@@ -35,14 +36,11 @@ bd close "$STEP_ID" --continue
 HOOK_JSON=$(gt hook --json 2>/dev/null || echo '{}')
 NEXT_STEP=$(echo "$HOOK_JSON" | jq -r '.progress.ready_steps[0] // empty')
 
-# Fallback 1: bd ready --parent (respects dependencies)
+# Fallback: Find steps via blocking deps (bd-69d7 workaround - steps block molecule instead of parent-child)
+# Filter for open steps that aren't the one we just closed
 if [ -z "$NEXT_STEP" ]; then
-  NEXT_STEP=$(bd ready --parent "$MOL_ID" --json 2>/dev/null | jq -r '.[0].id // empty' || echo "")
-fi
-
-# Fallback 2: bd list for any open step (handles bd ready filtering issues)
-if [ -z "$NEXT_STEP" ]; then
-  NEXT_STEP=$(bd list --parent "$MOL_ID" --status=open --json 2>/dev/null | jq -r '.[0].id // empty' || echo "")
+  NEXT_STEP=$(bd dep list "$MOL_ID" --direction=up --type=blocks --json 2>/dev/null | \
+    jq -r --arg closed "$STEP_ID" '[.[] | select(.id != $closed and .status == "open")][0].id // empty' || echo "")
 fi
 
 if [ -n "$NEXT_STEP" ]; then

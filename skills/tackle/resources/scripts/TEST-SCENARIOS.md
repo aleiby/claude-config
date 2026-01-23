@@ -566,44 +566,33 @@ Test timestamps to verify:
 
 ## sling-tackle.sh
 
-### Molecule Step Parenting Workaround
+### Known Issues: Molecule Step Linking
 
-**Location:** sling-tackle.sh (lines 54-66)
+**Bugs (cannot be worked around in tackle):**
+- bd-69d7: gt sling --on adds root molecule as BLOCKING dep instead of parent-child
+- bd-v29h: `bd update --parent` silently fails on wisps (parent_id stays null)
 
-**Purpose:** Fix molecule step parenting after `gt sling` creates molecules with spurious blocking dependencies instead of proper parent-child relationships.
+**Impact:** Steps are linked to molecules via blocking deps instead of parent-child. This means:
+- `bd list --parent` and `bd ready --parent` don't work
+- Must use `gt hook --json` or `bd dep list --type=blocks` to find steps
 
-**Bugs addressed (remove workaround when fixed):**
-- bd-69d7: gt sling --on adds root molecule as BLOCKING dep (blocks steps)
-- bd-v29h: Steps have null parent_id, only linked via that blocking dep
-
-**Key command:**
+**Key command to find steps:**
 ```bash
-# Find steps blocked BY the molecule (the spurious dependency)
+# Find steps via blocking deps (the only link that exists)
 bd dep list "$MOL_ID" --direction=up --type=blocks --json | jq -r '.[].id // empty'
 ```
 
-**Integration test approach:**
+**Test: Verify steps are findable via blocking deps:**
 ```bash
-# 1. Create a test molecule manually with spurious blocking deps
-bd create --title="Test Molecule" --type=epic
-MOL_ID=<created-id>
-bd create --title="Test Step" --type=task
-STEP_ID=<created-id>
-# Add spurious blocking dep (simulating the bug)
-bd dep add "$STEP_ID" "$MOL_ID" --type=blocks
+# After gt sling tackle --on <issue>
+HOOK_JSON=$(gt hook --json)
+MOL_ID=$(echo "$HOOK_JSON" | jq -r '.attached_molecule')
 
-# 2. Run workaround (extracted from sling-tackle.sh)
-STEP_IDS=$(bd dep list "$MOL_ID" --direction=up --type=blocks --json | jq -r '.[].id // empty')
-for STEP_ID in $STEP_IDS; do
-  bd update "$STEP_ID" --parent "$MOL_ID"
-done
-for STEP_ID in $STEP_IDS; do
-  bd dep remove "$STEP_ID" "$MOL_ID"
-done
+# Primary: gt hook has step data
+echo "$HOOK_JSON" | jq '.progress.ready_steps'  # Should list step IDs
 
-# 3. Verify
-bd list --parent "$MOL_ID" --json | jq -r '.[].id'  # Should show STEP_ID
-bd dep list "$MOL_ID" --direction=up --type=blocks --json  # Should be empty
+# Fallback: blocking deps link steps to molecule
+bd dep list "$MOL_ID" --direction=up --type=blocks --json | jq -r '.[].id'  # Should list step IDs
 ```
 
 ---
