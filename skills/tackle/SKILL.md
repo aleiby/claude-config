@@ -95,6 +95,10 @@ This sets: `STEP_ID`
 
 **Requires**: `MOL_ID` must be set.
 
+### On Errors
+
+**If any resumption step fails unexpectedly: See "When Things Go Wrong" above.** Don't debug - mail the mayor.
+
 ## Resource Loading (Progressive Disclosure)
 
 **DO NOT load all resource files.** Load only what's needed for your current step.
@@ -470,6 +474,7 @@ gt sling tackle --on "$ISSUE_ID"
 if ! gt hook --json 2>/dev/null | jq -e '.attached_molecule' > /dev/null; then
   echo "ERROR: Sling failed - no molecule attached"
   echo "Check gt sling output above for errors"
+  echo ">>> Mail the mayor (see 'When Things Go Wrong' above) - do NOT try to fix this yourself <<<"
   exit 1
 fi
 
