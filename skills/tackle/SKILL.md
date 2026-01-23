@@ -986,7 +986,7 @@ Use after compaction, handoff, or session restart to continue an in-progress tac
 2. Load resource for the specified step (or auto-detect from `bd mol current`)
 3. Continue execution
 
-**Step names:** plan, gate-plan, branch, implement, validate, gate-submit, submit, record, reflect
+See **Resource Loading** section below for step names and their resources.
 
 **When to use:**
 - After `/compact`
