@@ -89,11 +89,6 @@ bd update "$MOL_ID" --add-label "formula:tackle"
 
 # Attach molecule to track your work (auto-detects your agent bead from cwd)
 gt mol attach "$MOL_ID"
-
-# If you get "not pinned" error, your agent bead needs setup first:
-#   AGENT_BEAD=$(bd list --type=agent --json | jq -r '.[0].id')
-#   bd update "$AGENT_BEAD" --status=pinned
-#   gt mol attach "$MOL_ID"  # retry
 ```
 
 **Check current state:**
