@@ -994,6 +994,15 @@ bd --no-daemon mol current   # Should show "No molecules in progress"
 gt mol status                # Should show "Nothing on hook"
 ```
 
+**OUTPUT THIS BANNER when tackle completes:**
+
+```
+┌─────────────────────────────────────────────────────────┐
+│  ✅ TACKLE COMPLETE: <issue-id> → PR #<number>          │
+│     No /tackle --resume needed                          │
+└─────────────────────────────────────────────────────────┘
+```
+
 ### Resuming (`/tackle --resume`)
 
 Use after compaction, handoff, or session restart to continue an in-progress tackle.
@@ -1047,6 +1056,15 @@ To abandon a tackle mid-workflow:
    ```
 
 The issue returns to ready state for future work.
+
+**OUTPUT THIS BANNER when tackle is aborted:**
+
+```
+┌─────────────────────────────────────────────────────────┐
+│  ⛔ TACKLE ABORTED: <issue-id>                          │
+│     Issue returned to ready state                       │
+└─────────────────────────────────────────────────────────┘
+```
 
 ## Resource Loading
 
