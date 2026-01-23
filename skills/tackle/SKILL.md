@@ -66,18 +66,35 @@ fi
 
 **When to run this:** After session restart (compaction, handoff, new terminal), or when checking status with `/tackle --status`. This ensures you have accurate state before taking any action.
 
+**NEVER trust summary alone. State is truth.**
+
+### Context Recovery
+
+Recover all variables needed for tackle execution:
+
 ```bash
-bd --no-daemon mol current   # 1. Verify molecule state
-gt mol status                # 2. Verify hook attachment
-# If detached, get MOL_ID from gt hook or bd mol current output, then:
-# gt mol attach "$MOL_ID"
+# Get IDs from hook (bead_id = issue, attached_molecule = tackle wisp)
+HOOK_JSON=$(gt hook --json)
+ISSUE_ID=$(echo "$HOOK_JSON" | jq -r '.bead_id')
+MOL_ID=$(echo "$HOOK_JSON" | jq -r '.attached_molecule')
+
+# Get upstream from issue bead notes (stored before slinging)
+ORG_REPO=$(bd show "$ISSUE_ID" --json | jq -r '.[0].notes' | grep -oP 'upstream: \K[^\s]+')
+
+# If upstream not in notes, detect from git remote
+if [ -z "$ORG_REPO" ]; then
+  UPSTREAM_URL=$(git remote get-url upstream 2>/dev/null || git remote get-url origin)
+  ORG_REPO=$(echo "$UPSTREAM_URL" | sed -E 's#.*github.com[:/]##' | sed 's/\.git$//')
+fi
+
+# Show current step
+bd --no-daemon mol current
 ```
 
-**NEVER trust summary alone. State is truth.**
+### Claiming Current Step
 
 If `bd mol current` shows a step but you're not the assignee:
 ```bash
-# MOL_ID from bd --no-daemon mol current output
 STEP_ID=$(bd ready --parent "$MOL_ID" --json | jq -r '.[0].id')
 bd update "$STEP_ID" --status=in_progress --assignee="$BD_ACTOR"
 ```
@@ -116,32 +133,30 @@ Check current step with `bd --no-daemon mol current`, then use this lookup:
 
 ## State Management via Beads Molecules
 
-**Molecule workflow:**
+**Starting a tackle (uses gt sling):**
 ```bash
-# Create molecule (requires --no-daemon)
-# $ISSUE_ID set in Step 2, $ORG_REPO set in Step 3
-MOL_OUTPUT=$(bd --no-daemon mol pour tackle --var issue="$ISSUE_ID" --var upstream="$ORG_REPO" 2>&1)
-MOL_ID=$(echo "$MOL_OUTPUT" | grep "Root issue:" | sed 's/.*Root issue: //')
+# Store upstream context in the issue bead (bead carries its own context)
+bd update "$ISSUE_ID" --notes "upstream: $ORG_REPO"
 
-# Add formula label for pattern detection in reflect phase
-bd update "$MOL_ID" --add-label "formula:tackle"
-
-# Attach molecule to track your work (auto-detects your agent bead from cwd)
-gt mol attach "$MOL_ID"
+# Sling the issue with tackle formula - this:
+# 1. Creates a wisp from the tackle formula
+# 2. Bonds the wisp to the issue bead
+# 3. Hooks the issue to self (status=hooked)
+# 4. Stores attached_molecule in the issue bead's description
+gt sling "$ISSUE_ID" --on tackle
 ```
 
 **Check current state:**
 ```bash
-bd --no-daemon mol current   # Show active molecule and current step
+gt hook                      # What's on my hook? Shows work + attached molecule
+bd --no-daemon mol current   # Show current step in the molecule
 bd ready                     # Find next executable step
-bd show "$STEP_ID"           # View step details (STEP_ID from bd ready output)
 ```
 
-**Two ways to get molecule ID:**
-- `gt hook --json | jq -r '.attached_molecule'` - from hook attachment (simpler, preferred for resume)
-- `bd --no-daemon mol current --json | jq -r '.molecule.id'` - from molecule state (works even if hook detached)
-
-Use `gt hook` for resumption checks; use `bd mol current` for step-level operations.
+**Get molecule ID:**
+```bash
+MOL_ID=$(gt hook --json | jq -r '.attached_molecule')
+```
 
 **Advance through steps:**
 ```bash
@@ -156,7 +171,7 @@ Pre-molecule (research):
   - [Project Research → Project Report] (only if cache stale)
   - Issue Research (checks all tracked repos)
       → Existing Work Decision → (skip | wait | proceed)
-  - Create Molecule
+  - Sling Issue with Tackle Formula
 
 Molecule steps (implementation):
   Plan → GATE:Plan
@@ -183,13 +198,13 @@ First, parse what the user wants:
 
 When starting `/tackle <issue>`:
 
-#### 1. Check for Existing Molecule
+#### 1. Check for Existing Work
 
 ```bash
-gt mol status
+gt hook
 ```
 
-If attached, resume from current step:
+If work is hooked with an attached molecule, resume from current step:
 ```bash
 bd --no-daemon mol current
 bd ready
@@ -278,13 +293,15 @@ Angle-bracket placeholders indicate values to substitute with actuals:
 
 **Sub-agent prompts:** Replace all `<placeholders>` with actual values before spawning - sub-agents don't inherit shell variables.
 
-**Persistence:** These variables don't persist across sessions. Store `$ORG_REPO` in the molecule for recovery:
+**Persistence:** These variables don't persist across sessions. The upstream is stored in the issue bead's notes before slinging:
 ```bash
-bd --no-daemon mol pour tackle --var issue="$ISSUE_ID" --var upstream="$ORG_REPO"
+bd update "$ISSUE_ID" --notes "upstream: $ORG_REPO"
+gt sling "$ISSUE_ID" --on tackle
 ```
-When resuming, re-run upstream detection or retrieve from molecule:
+When resuming, get the issue bead ID from hook and read its notes:
 ```bash
-ORG_REPO=$(bd show <molecule-id> --json | jq -r '.[0].vars.upstream // empty')
+ISSUE_ID=$(gt hook --json | jq -r '.bead_id')
+ORG_REPO=$(bd show "$ISSUE_ID" --json | jq -r '.[0].notes' | grep -oP 'upstream: \K[^\s]+')
 ```
 
 #### 4. Project Research (cache check + sub-agent if stale)
@@ -483,73 +500,41 @@ mkdir -p "$TOWN_FORMULAS"
 cp "$FORMULA_SRC" "$TOWN_FORMULAS/tackle.formula.toml"
 ```
 
-#### 10. Create Molecule (only if proceeding)
+#### 10. Sling Issue with Tackle Formula (only if proceeding)
 
 **⚠️ PRE-FLIGHT CHECKLIST - Do not proceed until all items are checked:**
 
-Before creating the molecule, verify you completed these steps:
+Before slinging the issue, verify you completed these steps:
 
-- [ ] **Step 6 (Pending PR Check)** - Sucessfully ran PR-CHECK sub-agent to clean up stale submissions
+- [ ] **Step 6 (Pending PR Check)** - Successfully ran PR-CHECK sub-agent to clean up stale submissions
 - [ ] **Step 7 (Issue Research)** - Successfully ran ISSUE-RESEARCH sub-agent to check for existing work
 - [ ] **Step 8 (Existing Work Decision)** - If existing work found, user confirmed to proceed
 
 If you skipped any of these, **STOP and go back to the associated step(s)**. Duplicating work wastes maintainer time and may get your PR rejected. The sub-agents exist to offload this research from your context - use them.
 
 ```bash
-# Create molecule and capture ID (requires --no-daemon)
-# Note: mol pour outputs "Root issue: <id>" - parse that line
-MOL_OUTPUT=$(bd --no-daemon mol pour tackle --var issue="$ISSUE_ID" --var upstream="$ORG_REPO" 2>&1)
-MOL_ID=$(echo "$MOL_OUTPUT" | grep "Root issue:" | sed 's/.*Root issue: //')
-echo "Created molecule: $MOL_ID"
+# Store upstream context in the issue bead (bead carries its own context)
+# This is needed because gt sling --on doesn't support --var
+bd update "$ISSUE_ID" --notes "upstream: $ORG_REPO"
 
-if [ -z "$MOL_ID" ]; then
-  echo "ERROR: Failed to create molecule"
-  echo "$MOL_OUTPUT"
+# Sling the issue with tackle formula
+# This creates the molecule wisp, bonds it to the issue, hooks issue to self,
+# and stores attached_molecule in the issue bead's description
+gt sling "$ISSUE_ID" --on tackle
+
+# Verify hook is set
+if ! gt hook --json 2>/dev/null | jq -e '.attached_molecule' > /dev/null; then
+  echo "ERROR: Sling failed - no molecule attached"
+  echo "Check gt sling output above for errors"
   exit 1
 fi
 
-# Add formula label for pattern detection
+# Get molecule ID from hook
+MOL_ID=$(gt hook --json | jq -r '.attached_molecule')
+echo "Tackle started: $MOL_ID"
+
+# Add formula label for pattern detection in reflect phase
 bd update "$MOL_ID" --add-label "formula:tackle"
-
-# Set molecule to in_progress so child steps can start
-bd update "$MOL_ID" --status=in_progress
-
-# Link source issue to molecule (bd show <issue> will show parent)
-bd update "$ISSUE_ID" --parent "$MOL_ID"
-
-# Ensure agent bead is pinned before attaching (gt mol attach requires pinned status)
-AGENT_BEAD=$(gt hook --json 2>/dev/null | jq -r '.bead_id // empty')
-if [ -n "$AGENT_BEAD" ]; then
-  AGENT_STATUS=$(bd show "$AGENT_BEAD" --json 2>/dev/null | jq -r '.[0].status // empty')
-  if [ "$AGENT_STATUS" != "pinned" ]; then
-    bd update "$AGENT_BEAD" --status=pinned
-  fi
-fi
-
-# Attach molecule to your hook
-gt mol attach "$MOL_ID"
-
-# Verify hook is set (critical for session recovery)
-if ! gt hook --json 2>/dev/null | jq -e '.attached_molecule' | grep -q "$MOL_ID"; then
-  echo "WARNING: Hook attachment failed. Attempting recovery..."
-
-  # Recovery: Try attaching again with explicit bead update
-  AGENT_BEAD=$(gt hook --json 2>/dev/null | jq -r '.bead_id // empty')
-  if [ -n "$AGENT_BEAD" ]; then
-    bd update "$AGENT_BEAD" --notes "attached_molecule: $MOL_ID"
-    gt mol attach "$MOL_ID"
-  fi
-
-  # Final verification
-  if ! gt hook --json 2>/dev/null | jq -e '.attached_molecule' | grep -q "$MOL_ID"; then
-    echo "ERROR: Could not attach molecule to hook."
-    echo "Manual recovery: gt mol attach $MOL_ID"
-    echo "Or continue without hook - use 'bd --no-daemon mol current' to track state"
-  fi
-fi
-
-# Mark the source issue as in_progress (keeps bd ready clean)
-bd update "$ISSUE_ID" --status=in_progress
 
 # CRITICAL: Claim first step with assignee so bd mol current works
 FIRST_STEP=$(bd ready --parent "$MOL_ID" --json 2>/dev/null | jq -r '.[0].id // empty')
@@ -762,15 +747,17 @@ Do NOT close the gate step until explicitly approved.
 If resuming at this gate after compaction or new session, recover required variables:
 
 ```bash
-# Get molecule ID from hook (field is 'attached_molecule' in gt hook --json output)
-MOL_ID=$(gt hook --json 2>/dev/null | jq -r '.attached_molecule // empty')
+# Get issue bead ID and molecule ID from hook
+HOOK_JSON=$(gt hook --json 2>/dev/null)
+ISSUE_ID=$(echo "$HOOK_JSON" | jq -r '.bead_id // empty')
+MOL_ID=$(echo "$HOOK_JSON" | jq -r '.attached_molecule // empty')
 if [ -z "$MOL_ID" ]; then
-  echo "ERROR: Not attached to a molecule. Run: gt mol attach <molecule-id>"
+  echo "ERROR: No molecule attached to hook. Check gt hook output."
   exit 1
 fi
 
-# Recover ORG_REPO from molecule vars
-ORG_REPO=$(bd show "$MOL_ID" --json | jq -r '.[0].vars.upstream // empty')
+# Recover ORG_REPO from issue bead notes (stored before slinging)
+ORG_REPO=$(bd show "$ISSUE_ID" --json | jq -r '.[0].notes' | grep -oP 'upstream: \K[^\s]+' || echo "")
 if [ -z "$ORG_REPO" ]; then
   # Fallback: re-detect from git remote (see "Detect Upstream" section)
   UPSTREAM_URL=$(git remote get-url upstream 2>/dev/null || git remote get-url fork-source 2>/dev/null || git remote get-url origin 2>/dev/null)
@@ -1016,7 +1003,7 @@ bd close "$MOL_ID" --reason "Tackle complete - PR submitted"
 
 # 3. Verify cleanup
 bd --no-daemon mol current   # Should show "No molecules in progress"
-gt mol status                # Should show "Nothing on hook"
+gt hook                      # Should show "Nothing on hook"
 
 # 4. CRITICAL: Clean up CLAUDE.md (see COMPACTION RECOVERY section)
 TACKLE_MARKER="## ⚠️ TACKLE IN PROGRESS"

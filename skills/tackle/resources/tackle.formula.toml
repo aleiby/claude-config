@@ -3,17 +3,15 @@ Upstream-aware issue implementation workflow with approval gates.
 
 Tracks work from initial research through PR submission. Each step is a
 checkpoint that survives session restarts. Gates require explicit approval.
+
+Usage: gt sling <issue-bead> --on tackle
+
+Context is read from the bonded bead:
+- Issue ID: gt hook --json | jq -r '.bead_id'
+- Upstream: stored in bead notes before slinging (grep 'upstream:')
 """
 formula = "tackle"
-version = 2
-
-[vars.issue]
-description = "The issue ID being tackled"
-required = true
-
-[vars.upstream]
-description = "Detected upstream org/repo"
-required = false
+version = 3
 
 [[steps]]
 id = "plan"
@@ -45,11 +43,6 @@ title = "Create clean branch"
 needs = ["gate-plan"]
 description = """
 See <skill-dir>/resources/IMPLEMENT.md Branch Phase.
-
-git fetch $UPSTREAM_REMOTE
-git checkout -b <type>/<issue-id>-<description> $UPSTREAM_REF
-
-Variables from <skill-dir>/SKILL.md "Detect Upstream" section.
 """
 
 [[steps]]
