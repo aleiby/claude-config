@@ -482,9 +482,17 @@ bd update "$MOL_ID" --status=in_progress
 # Link source issue to molecule (bd show <issue> will show parent)
 bd update "$ISSUE_ID" --parent "$MOL_ID"
 
+# Ensure agent bead is pinned before attaching (gt mol attach requires pinned status)
+AGENT_BEAD=$(gt hook --json 2>/dev/null | jq -r '.bead_id // empty')
+if [ -n "$AGENT_BEAD" ]; then
+  AGENT_STATUS=$(bd show "$AGENT_BEAD" --json 2>/dev/null | jq -r '.[0].status // empty')
+  if [ "$AGENT_STATUS" != "pinned" ]; then
+    bd update "$AGENT_BEAD" --status=pinned
+  fi
+fi
+
 # Attach molecule to your hook
 gt mol attach "$MOL_ID"
-# If "not pinned" error: see molecule workflow section above
 
 # Verify hook is set (critical for session recovery)
 gt hook | grep -q "$MOL_ID" || echo "WARNING: Hook not set - check gt mol attach"
@@ -522,14 +530,24 @@ After completing work for a step:
 ```bash
 bd close "$STEP_ID" --continue
 
-# CRITICAL: Set assignee so bd mol current can find you
+# CRITICAL: Claim next step so bd mol current can find you
+# First try bd ready --parent (preferred - respects dependencies)
 NEXT_STEP=$(bd ready --parent "$MOL_ID" --json 2>/dev/null | jq -r '.[0].id // empty')
+
+# Fallback: if bd ready returns empty, find next open step via bd list
+# This handles cases where bd ready incorrectly filters out valid steps
+if [ -z "$NEXT_STEP" ]; then
+  NEXT_STEP=$(bd list --parent "$MOL_ID" --status=open --json 2>/dev/null | jq -r '.[0].id // empty')
+fi
+
 if [ -n "$NEXT_STEP" ]; then
-  bd update "$NEXT_STEP" --assignee "$BD_ACTOR"
+  bd update "$NEXT_STEP" --status=in_progress --assignee "$BD_ACTOR"
 fi
 ```
 
-This marks the step complete and advances to the next step. The assignee step is required because `bd mol current` filters by assignee - without it, the molecule becomes invisible.
+This marks the step complete and advances to the next step. The assignee update is required because `bd mol current` filters by assignee - without it, the molecule becomes invisible.
+
+**Note:** The fallback to `bd list --parent` works around a known issue where `bd ready --parent` may return empty even when steps are available.
 
 **Continue until reflect is complete and root molecule is closed.** Tackle is not done until then.
 
