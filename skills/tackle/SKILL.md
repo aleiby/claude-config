@@ -473,56 +473,12 @@ Before slinging the issue, verify you completed these steps:
 If you skipped any of these, **STOP and go back to the associated step(s)**. Duplicating work wastes maintainer time and may get your PR rejected. The sub-agents exist to offload this research from your context - use them.
 
 ```bash
-# Store upstream context in the issue bead (bead carries its own context)
-# This is needed because gt sling --on doesn't support --var
-bd update "$ISSUE_ID" --notes "upstream: $ORG_REPO"
-
-# Sling the issue with tackle formula
-# This creates the molecule wisp, bonds it to the issue, hooks issue to self,
-# and stores attached_molecule in the issue bead's description
-gt sling tackle --on "$ISSUE_ID"
-
-# Verify hook is set
-if ! gt hook --json 2>/dev/null | jq -e '.attached_molecule' > /dev/null; then
-  echo "ERROR: Sling failed - no molecule attached"
-  echo "Check gt sling output above for errors"
-  echo ">>> Mail the mayor (see 'When Things Go Wrong' above) - do NOT try to fix this yourself <<<"
-  exit 1
-fi
-
-# Get molecule ID and first step from hook (avoids bd routing issues)
-HOOK_JSON=$(gt hook --json)
-MOL_ID=$(echo "$HOOK_JSON" | jq -r '.attached_molecule')
-echo "Tackle started: $MOL_ID"
-
-# WORKAROUND: Fix molecule step parenting and remove spurious dependencies
-# Bug bd-69d7: gt sling --on adds root molecule as dependency (blocks steps)
-# Bug bd-v29h: Steps have null parent_id, only linked via that dependency
-# Fix: Set parent_id FIRST (preserves --parent queryability), THEN remove dependency
-STEP_IDS=$(bd list --parent "$MOL_ID" --json 2>/dev/null | jq -r '.[].id')
-for STEP_ID in $STEP_IDS; do
-  # Ensure parent_id is set (may be linked only via dependency)
-  bd update "$STEP_ID" --parent "$MOL_ID" 2>/dev/null || true
-done
-# Now safe to remove spurious dependencies
-for STEP_ID in $STEP_IDS; do
-  bd dep remove "$STEP_ID" "$MOL_ID" 2>/dev/null || true
-done
-
-# Add formula label for pattern detection in reflect phase
-bd update "$MOL_ID" --add-label "formula:tackle"
-
-# CRITICAL: Claim first step with assignee so bd mol current works
-# Use gt hook data directly (more reliable than bd ready --parent)
-FIRST_STEP=$(echo "$HOOK_JSON" | jq -r '.progress.ready_steps[0] // empty')
-if [ -n "$FIRST_STEP" ]; then
-  if [ -z "${BD_ACTOR:-}" ]; then
-    echo "ERROR: BD_ACTOR not set. Run env-check.sh first, or report to mayor."
-    exit 1
-  fi
-  bd update "$FIRST_STEP" --status=in_progress --assignee "$BD_ACTOR"
-fi
+source "$SKILL_DIR/resources/scripts/sling-tackle.sh"
 ```
+
+This sets: `MOL_ID`, `FIRST_STEP`
+
+**Requires**: `ISSUE_ID`, `ORG_REPO`, `BD_ACTOR` must be set.
 
 ### Phase Execution
 
@@ -924,9 +880,13 @@ else
   bd close "$MOL_ID" --reason "Tackle complete - PR submitted"
 fi
 
-# 3. Verify cleanup
+# 3. Verify molecule closed
 bd --no-daemon mol current   # Should show "No molecules in progress"
-gt hook                      # Should show "Nothing on hook"
+
+# 4. Unhook the issue (frees your hook for other work)
+# The issue stays in "deferred" status until PR outcome - that's correct.
+# But you can work on other things while waiting for maintainer review.
+gt unhook --force
 ```
 
 **OUTPUT THIS BANNER when tackle completes:**

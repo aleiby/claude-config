@@ -18,6 +18,7 @@ This document defines test cases for validating the tackle bash scripts.
 | **query-friction.sh** | Query molecules for friction patterns<br>@ *Reflect phase* | → (none)<br>← JSON output |
 | **report-problem.sh** | Report tackle problem to mayor via mail<br>@ *When Things Go Wrong* | → `SKILL_DIR`, `STEP`, `ERROR_DESC`, `ERROR_MSG` (opt)<br>← (sends mail) |
 | **env-check.sh** | Validate required env vars (BD_ACTOR, SKILL_DIR)<br>@ *Resumption Protocol* | → (reads env)<br>← (exits 1 if missing) |
+| **sling-tackle.sh** | Sling formula, fix step parenting, claim first step<br>@ *Step 9 (Sling)* | → `ISSUE_ID`, `ORG_REPO`, `BD_ACTOR`<br>← `MOL_ID`, `FIRST_STEP` |
 
 ---
 
@@ -517,6 +518,50 @@ Test timestamps to verify:
 - `2024-01-15T10:30:00+00:00` (with timezone offset)
 - `2024-01-15T10:30:00Z` (with Z suffix)
 - `2024-01-15T10:30:00` (bare timestamp)
+
+---
+
+## sling-tackle.sh
+
+### Molecule Step Parenting Workaround
+
+**Location:** sling-tackle.sh (lines 54-66)
+
+**Purpose:** Fix molecule step parenting after `gt sling` creates molecules with spurious blocking dependencies instead of proper parent-child relationships.
+
+**Bugs addressed (remove workaround when fixed):**
+- bd-69d7: gt sling --on adds root molecule as BLOCKING dep (blocks steps)
+- bd-v29h: Steps have null parent_id, only linked via that blocking dep
+
+**Key command:**
+```bash
+# Find steps blocked BY the molecule (the spurious dependency)
+bd dep list "$MOL_ID" --direction=up --type=blocks --json | jq -r '.[].id // empty'
+```
+
+**Integration test approach:**
+```bash
+# 1. Create a test molecule manually with spurious blocking deps
+bd create --title="Test Molecule" --type=epic
+MOL_ID=<created-id>
+bd create --title="Test Step" --type=task
+STEP_ID=<created-id>
+# Add spurious blocking dep (simulating the bug)
+bd dep add "$STEP_ID" "$MOL_ID" --type=blocks
+
+# 2. Run workaround (extracted from sling-tackle.sh)
+STEP_IDS=$(bd dep list "$MOL_ID" --direction=up --type=blocks --json | jq -r '.[].id // empty')
+for STEP_ID in $STEP_IDS; do
+  bd update "$STEP_ID" --parent "$MOL_ID"
+done
+for STEP_ID in $STEP_IDS; do
+  bd dep remove "$STEP_ID" "$MOL_ID"
+done
+
+# 3. Verify
+bd list --parent "$MOL_ID" --json | jq -r '.[].id'  # Should show STEP_ID
+bd dep list "$MOL_ID" --direction=up --type=blocks --json  # Should be empty
+```
 
 ---
 
