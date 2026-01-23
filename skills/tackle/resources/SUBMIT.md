@@ -12,7 +12,7 @@ Before this phase, verify:
 1. gate-submit step is closed (was approved)
 2. **CI completed successfully** (checked via ci-status-check.sh in gate-submit)
 
-**⚠️ NEVER mark a PR ready if CI is still running or has failures.**
+**⚠️ NEVER mark a PR ready if CI is still running or has new failures.**
 
 If you're unsure about CI status, check it now:
 ```bash
