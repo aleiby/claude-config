@@ -495,12 +495,11 @@ HOOK_JSON=$(gt hook --json)
 MOL_ID=$(echo "$HOOK_JSON" | jq -r '.attached_molecule')
 echo "Tackle started: $MOL_ID"
 
-# WORKAROUND: Remove spurious root molecule dependencies from steps
-# Bug: gt sling --on incorrectly adds root molecule as dependency to all steps
-# Tracked in: bd-69d7
-for STEP_ID in $(bd list --parent "$MOL_ID" --json | jq -r '.[].id'); do
-  bd dep remove "$STEP_ID" "$MOL_ID" 2>/dev/null || true
-done
+# NOTE: Molecule/formula infrastructure has bugs that prevent tackle from working:
+# - bd-69d7: gt sling --on adds spurious root molecule dependency to steps
+# - bd-v29h: Removing that dependency orphans the steps entirely
+# Until these are fixed, tackle workflow will not work properly.
+# Workaround was attempted but made things worse - removed.
 
 # Add formula label for pattern detection in reflect phase
 bd update "$MOL_ID" --add-label "formula:tackle"
