@@ -82,7 +82,7 @@ source "$SKILL_DIR/resources/scripts/context-recovery.sh"
 
 This sets: `ISSUE_ID`, `MOL_ID`, `ORG_REPO`
 
-**Errors**: Exits 1 with message if upstream not found in issue notes.
+**Errors**: Exits 1 if upstream not found in issue notes or git remotes.
 
 ### Claiming Current Step
 
@@ -139,7 +139,7 @@ bd update "$ISSUE_ID" --notes "upstream: $ORG_REPO"
 # 2. Bonds the wisp to the issue bead
 # 3. Hooks the issue to self (status=hooked)
 # 4. Stores attached_molecule in the issue bead's description
-gt sling "$ISSUE_ID" --on tackle
+gt sling tackle --on "$ISSUE_ID"
 ```
 
 **Check current state:**
@@ -265,7 +265,7 @@ Angle-bracket placeholders indicate values to substitute with actuals:
 **Persistence:** These variables don't persist across sessions. The upstream is stored in the issue bead's notes before slinging:
 ```bash
 bd update "$ISSUE_ID" --notes "upstream: $ORG_REPO"
-gt sling "$ISSUE_ID" --on tackle
+gt sling tackle --on "$ISSUE_ID"
 ```
 When resuming, get the issue bead ID from hook and read its notes:
 ```bash
@@ -464,7 +464,7 @@ bd update "$ISSUE_ID" --notes "upstream: $ORG_REPO"
 # Sling the issue with tackle formula
 # This creates the molecule wisp, bonds it to the issue, hooks issue to self,
 # and stores attached_molecule in the issue bead's description
-gt sling "$ISSUE_ID" --on tackle
+gt sling tackle --on "$ISSUE_ID"
 
 # Verify hook is set
 if ! gt hook --json 2>/dev/null | jq -e '.attached_molecule' > /dev/null; then
@@ -683,23 +683,10 @@ Do NOT close the gate step until explicitly approved.
 If resuming at this gate after compaction or new session, recover required variables:
 
 ```bash
-# Get issue bead ID and molecule ID from hook
-HOOK_JSON=$(gt hook --json 2>/dev/null)
-ISSUE_ID=$(echo "$HOOK_JSON" | jq -r '.bead_id // empty')
-MOL_ID=$(echo "$HOOK_JSON" | jq -r '.attached_molecule // empty')
-if [ -z "$MOL_ID" ]; then
-  echo "ERROR: No molecule attached to hook. Check gt hook output."
-  exit 1
-fi
+# Recover ISSUE_ID, MOL_ID, ORG_REPO
+source "$SKILL_DIR/resources/scripts/context-recovery.sh"
 
-# Recover ORG_REPO from issue bead notes (stored before slinging)
-ORG_REPO=$(bd show "$ISSUE_ID" --json | jq -r '.[0].notes' | grep -oP 'upstream: \K[^\s]+' || echo "")
-if [ -z "$ORG_REPO" ]; then
-  echo "ERROR: No upstream found in issue notes. Was this tackle started correctly?"
-  exit 1
-fi
-
-# Recover DEFAULT_BRANCH
+# Recover DEFAULT_BRANCH (needed for CI check)
 DEFAULT_BRANCH=$(gh api repos/$ORG_REPO --jq '.default_branch')
 ```
 
@@ -890,8 +877,15 @@ After completing the reflect assessment:
 bd close "$STEP_ID" --reason "Clean run - no issues"  # or summary of findings
 
 # 2. CRITICAL: Close the ROOT MOLECULE (not just the steps!)
-MOL_ID=$(bd --no-daemon mol current --json | jq -r '.molecule.id')
-bd close "$MOL_ID" --reason "Tackle complete - PR submitted"
+# MOL_ID should already be set from context-recovery.sh, but verify it exists
+if [ -z "$MOL_ID" ]; then
+  MOL_ID=$(gt hook --json | jq -r '.attached_molecule // empty')
+fi
+if [ -z "$MOL_ID" ]; then
+  echo "ERROR: No molecule ID found. Check gt hook or context-recovery.sh output."
+else
+  bd close "$MOL_ID" --reason "Tackle complete - PR submitted"
+fi
 
 # 3. Verify cleanup
 bd --no-daemon mol current   # Should show "No molecules in progress"

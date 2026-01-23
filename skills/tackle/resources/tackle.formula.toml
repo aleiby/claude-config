@@ -6,7 +6,7 @@ checkpoint that survives session restarts. Gates require explicit approval.
 
 ⚠️ Run `/tackle --resume` to load full guidance for the current step.
 
-Usage: gt sling <issue-bead> --on tackle
+Usage: gt sling tackle --on <issue-bead>
 
 Context is read from the bonded bead:
 - Issue ID: gt hook --json | jq -r '.bead_id'
