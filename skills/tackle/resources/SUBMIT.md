@@ -143,8 +143,12 @@ This separation allows tracking issues through the full lifecycle, even if PRs n
 
 ```bash
 # Count changed files and lines for the record
-FILES_CHANGED=$(git diff --stat $UPSTREAM_REF | tail -1 | grep -oE '[0-9]+ file' | grep -oE '[0-9]+')
-LINES_CHANGED=$(git diff --stat $UPSTREAM_REF | tail -1 | grep -oE '[0-9]+ insertion|[0-9]+ deletion' | grep -oE '[0-9]+' | paste -sd+ | bc)
+DIFF_STAT=$(git diff --stat $UPSTREAM_REF | tail -1)
+FILES_CHANGED=$(echo "$DIFF_STAT" | grep -oE '[0-9]+ file' | grep -oE '[0-9]+')
+# Sum insertions and deletions using shell arithmetic (avoids bc/paste dependency)
+INSERTIONS=$(echo "$DIFF_STAT" | grep -oE '[0-9]+ insertion' | grep -oE '[0-9]+' || echo 0)
+DELETIONS=$(echo "$DIFF_STAT" | grep -oE '[0-9]+ deletion' | grep -oE '[0-9]+' || echo 0)
+LINES_CHANGED=$((${INSERTIONS:-0} + ${DELETIONS:-0}))
 
 bd update <issue-id> \
   --add-label pr-submitted \

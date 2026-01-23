@@ -61,11 +61,18 @@ gh pr list --repo $ORG_REPO --author @me --json number,title,headRefName,state
 
 ### 5. Search All Tracked Repos
 
-For each repo in tracked_repos:
+Iterate over tracked_repos array (passed as JSON in inputs). Example in bash:
 ```bash
-gh issue list --repo $REPO --search "$SEARCH_TERMS" --json number,title,state --limit 5
-gh pr list --repo $REPO --search "$SEARCH_TERMS" --json number,title,state --limit 5
+# tracked_repos is passed as JSON array, e.g., '["org/repo1", "org/repo2"]'
+# Parse with jq and iterate
+echo "$TRACKED_REPOS_JSON" | jq -r '.[]' | while read REPO; do
+  echo "Searching $REPO..."
+  gh issue list --repo "$REPO" --search "$SEARCH_TERMS" --json number,title,state --limit 5
+  gh pr list --repo "$REPO" --search "$SEARCH_TERMS" --json number,title,state --limit 5
+done
 ```
+
+Or directly in jq if processing JSON output.
 
 ## Required Output Format
 

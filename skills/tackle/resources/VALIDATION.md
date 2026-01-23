@@ -7,7 +7,7 @@ Verify implementation before submission.
 Use upstream and default branch. If resuming after session restart:
 ```bash
 # Recover ORG_REPO from molecule vars
-MOL_ID=$(gt hook --json 2>/dev/null | jq -r '.molecule // empty')
+MOL_ID=$(gt hook --json 2>/dev/null | jq -r '.attached_molecule // empty')
 ORG_REPO=$(bd show "$MOL_ID" --json | jq -r '.[0].vars.upstream // empty')
 
 # If not in molecule, re-detect from git remote

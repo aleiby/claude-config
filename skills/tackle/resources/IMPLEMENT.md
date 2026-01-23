@@ -73,7 +73,7 @@ Then **STOP** - proceed to gate-plan (see SKILL.md).
 pwd  # Verify you're in your own rig before making changes
 ```
 
-Don't edit files in other agents' directories.
+Don't edit files in other agents' directories. If unsure about the directory structure, consult https://github.com/steveyegge/gastown/blob/main/docs/design/architecture.md#directory-structure
 
 ## Branch Phase
 

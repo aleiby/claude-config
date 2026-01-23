@@ -112,7 +112,7 @@ project_research:
       linter: "<tool or null>"
     commits:
       tense: "<present|past|unspecified>"
-      max_length: <n or null>
+      subject_max_length: <n or null>
       reference_format: "<format or null>"
     pull_requests:
       required_sections: ["<section>", ...]

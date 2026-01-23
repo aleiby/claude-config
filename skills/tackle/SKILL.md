@@ -25,7 +25,7 @@ When user asks for help, show this Quick Reference section.
 
 ## Resumption Protocol (ALWAYS FIRST)
 
-After ANY interruption (compaction, new session, handoff, `/tackle --status`):
+**When to run this:** After session restart (compaction, handoff, new terminal), or when checking status with `/tackle --status`. This ensures you have accurate state before taking any action.
 
 ```bash
 bd --no-daemon mol current   # 1. Verify molecule state
@@ -102,6 +102,12 @@ bd --no-daemon mol current   # Show active molecule and current step
 bd ready                     # Find next executable step
 bd show "$STEP_ID"           # View step details (STEP_ID from bd ready output)
 ```
+
+**Two ways to get molecule ID:**
+- `gt hook --json | jq -r '.attached_molecule'` - from hook attachment (simpler, preferred for resume)
+- `bd --no-daemon mol current --json | jq -r '.molecule.id'` - from molecule state (works even if hook detached)
+
+Use `gt hook` for resumption checks; use `bd mol current` for step-level operations.
 
 **Advance through steps:**
 ```bash
@@ -265,11 +271,15 @@ CACHE_FRESH=false
 if [ -n "$CACHE_BEAD" ] && [ "$CACHE_BEAD" != "null" ]; then
   LAST_CHECKED=$(bd show "$CACHE_BEAD" --json | jq -r '.[0].notes' | grep -oE 'last_checked: [^ ]+' | sed 's/last_checked: //' || echo "")
   if [ -n "$LAST_CHECKED" ]; then
-    # Cross-platform date parsing
+    # Cross-platform date parsing (handles +TZ offset, Z suffix, or bare timestamp)
+    # Strip timezone suffix for parsing: remove trailing Z, or +/-HH:MM offset
+    BARE_TS=$(echo "$LAST_CHECKED" | sed -E 's/(Z|[+-][0-9]{2}:[0-9]{2})$//')
     if date -d "$LAST_CHECKED" +%s >/dev/null 2>&1; then
+      # GNU date (Linux)
       LAST_TS=$(date -d "$LAST_CHECKED" +%s)
-    elif date -j -f "%Y-%m-%dT%H:%M:%S" "${LAST_CHECKED%%+*}" +%s >/dev/null 2>&1; then
-      LAST_TS=$(date -j -f "%Y-%m-%dT%H:%M:%S" "${LAST_CHECKED%%+*}" +%s)
+    elif date -j -f "%Y-%m-%dT%H:%M:%S" "$BARE_TS" +%s >/dev/null 2>&1; then
+      # BSD date (macOS) - use stripped timestamp
+      LAST_TS=$(date -j -f "%Y-%m-%dT%H:%M:%S" "$BARE_TS" +%s)
     else
       LAST_TS=0
     fi
@@ -316,10 +326,11 @@ This is a housekeeping gate - check ALL issues with `pr-submitted` label.
 **Gather inputs for sub-agent:**
 ```bash
 # Build pending issues list
-# Note: capture()? returns null on no match instead of error
+# Notes contain "PR: https://github.com/org/repo/pull/123" format
+# Extract PR number from the URL path
 PENDING_JSON=$(bd list --label=pr-submitted --json 2>/dev/null | jq '[.[] | {
   id: .id,
-  pr_number: ((.notes // "") | capture("PR #(?<n>[0-9]+)")? | .n // null),
+  pr_number: ((.notes // "") | capture("pull/(?<n>[0-9]+)")? | .n // null),
   title: .title
 }] | map(select(.pr_number != null))')
 
@@ -364,8 +375,11 @@ TRACKED_REPOS=$(yq -o=json '.tackle.tracked_repos // []' .beads/config.yaml 2>/d
 # Falls back to just ORG_REPO if no cache
 [ "$TRACKED_REPOS" = "[]" ] || [ -z "$TRACKED_REPOS" ] && TRACKED_REPOS="[\"$ORG_REPO\"]"
 
-# Extract upstream issue number
-UPSTREAM_ISSUE=$(bd show "$ISSUE_ID" --json | jq -r '.[0].external_ref // empty' | grep -oE 'issue:[0-9]+' | sed 's/issue://')
+# Extract upstream issue number from external_ref field
+# Format convention: "gh:<org>/<repo>#<number>" or "issue:<number>" for simple cases
+# Examples: "gh:steveyegge/beads#123", "issue:456"
+# Set via: bd create --external-ref "gh:org/repo#123" or bd update --external-ref "..."
+UPSTREAM_ISSUE=$(bd show "$ISSUE_ID" --json | jq -r '.[0].external_ref // empty' | grep -oE '#[0-9]+$|issue:[0-9]+' | grep -oE '[0-9]+')
 
 # Extract search terms from issue title
 ISSUE_TITLE=$(bd show "$ISSUE_ID" --json | jq -r '.[0].title')
@@ -594,9 +608,9 @@ Plan for <issue-id>: <issue-title>
   - Skip: <reason, e.g., "internal-only issue", "already assigned to me", "I filed this issue">
 
 Options:
-  - Approve (continue to implementation)
-  - Explain (show rationale for this approach)
-  - Decline (request changes)
+  1. Approve (continue to implementation)
+  2. Explain (show rationale for this approach)
+  3. Decline (request changes)
 ```
 
 ### On Approve
@@ -608,9 +622,12 @@ bd close "$STEP_ID" --continue
 
 **If claiming** (plan indicated "Will claim"):
 ```bash
-# Extract upstream issue number from the local issue's external_ref or labels
-UPSTREAM_ISSUE=$(bd show "$ISSUE_ID" --json | jq -r '.[0].external_ref // empty' | grep -oE 'issue:[0-9]+' | sed 's/issue://')
-gh issue comment $UPSTREAM_ISSUE --repo $ORG_REPO --body "I'd like to work on this. I'll submit a PR soon."
+# Extract upstream issue number from the local issue's external_ref
+# See Step 7 for format convention (gh:org/repo#123 or issue:123)
+UPSTREAM_ISSUE=$(bd show "$ISSUE_ID" --json | jq -r '.[0].external_ref // empty' | grep -oE '#[0-9]+$|issue:[0-9]+' | grep -oE '[0-9]+')
+if [ -n "$UPSTREAM_ISSUE" ]; then
+  gh issue comment "$UPSTREAM_ISSUE" --repo "$ORG_REPO" --body "I'd like to work on this. I'll submit a PR soon."
+fi
 ```
 
 Proceed to branch creation.
@@ -663,8 +680,8 @@ Do NOT close the gate step until explicitly approved.
 If resuming at this gate after compaction or new session, recover required variables:
 
 ```bash
-# Get molecule ID from hook
-MOL_ID=$(gt hook --json 2>/dev/null | jq -r '.molecule // empty')
+# Get molecule ID from hook (field is 'attached_molecule' in gt hook --json output)
+MOL_ID=$(gt hook --json 2>/dev/null | jq -r '.attached_molecule // empty')
 if [ -z "$MOL_ID" ]; then
   echo "ERROR: Not attached to a molecule. Run: gt mol attach <molecule-id>"
   exit 1
