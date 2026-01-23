@@ -327,7 +327,7 @@ PENDING_JSON=$(bd list --label=pr-submitted --json 2>/dev/null | jq '[.[] | {
   id: .id,
   pr_number: ((.notes // "") | capture("pull/(?<n>[0-9]+)")? | .n // null),
   title: .title
-}] | map(select(.pr_number != null))')
+}] | map(select(.pr_number))')
 
 echo "$PENDING_JSON"
 ```
@@ -490,7 +490,23 @@ fi
 gt mol attach "$MOL_ID"
 
 # Verify hook is set (critical for session recovery)
-gt hook | grep -q "$MOL_ID" || echo "WARNING: Hook not set - check gt mol attach"
+if ! gt hook --json 2>/dev/null | jq -e '.attached_molecule' | grep -q "$MOL_ID"; then
+  echo "WARNING: Hook attachment failed. Attempting recovery..."
+
+  # Recovery: Try attaching again with explicit bead update
+  AGENT_BEAD=$(gt hook --json 2>/dev/null | jq -r '.bead_id // empty')
+  if [ -n "$AGENT_BEAD" ]; then
+    bd update "$AGENT_BEAD" --notes "attached_molecule: $MOL_ID"
+    gt mol attach "$MOL_ID"
+  fi
+
+  # Final verification
+  if ! gt hook --json 2>/dev/null | jq -e '.attached_molecule' | grep -q "$MOL_ID"; then
+    echo "ERROR: Could not attach molecule to hook."
+    echo "Manual recovery: gt mol attach $MOL_ID"
+    echo "Or continue without hook - use 'bd --no-daemon mol current' to track state"
+  fi
+fi
 
 # Mark the source issue as in_progress (keeps bd ready clean)
 bd update "$ISSUE_ID" --status=in_progress
@@ -676,8 +692,8 @@ Present the rationale you prepared internally:
 
 ---
 Options:
-  - Approve (continue to implementation)
-  - Decline (request changes)
+  1. Approve (continue to implementation)
+  2. Decline (request changes)
 ```
 
 After presenting rationale, wait for approve or decline.
@@ -854,6 +870,17 @@ Options:
 <if all failures are pre-existing>
 All failures are pre-existing on main. Safe to proceed.
 ```
+
+**If user chooses "Fix failures":**
+
+Do NOT close gate-submit. Stay at this gate and iterate:
+
+1. Fix the failing check (e.g., run `golangci-lint run ./...` locally, fix issues)
+2. Commit the fix: `git commit --amend` (keep single commit) or new commit
+3. Force-push: `git push -f origin <branch>`
+4. Wait for CI to re-run (poll with `gh pr view $PR_NUMBER --repo $ORG_REPO --json statusCheckRollup`)
+5. Re-present the gate-submit checkpoint with updated CI status
+6. Repeat until CI passes or user chooses to submit anyway
 
 **If CI passed** (or failures are pre-existing, or user chooses to submit anyway), store PR info and proceed:
 
