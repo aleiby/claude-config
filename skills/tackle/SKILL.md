@@ -26,16 +26,49 @@ When user asks for help, show this Quick Reference section.
 
 ## 🔄 COMPACTION RECOVERY
 
-**OUTPUT THIS BLOCK IMMEDIATELY when tackle starts (new or resume):**
+**WRITE TO CLAUDE.md IMMEDIATELY when tackle starts (new or resume):**
 
-```
-┌─────────────────────────────────────────────────────────┐
-│  🔄 COMPACTION RECOVERY: If session compacts, run:      │
-│     /tackle --resume                                    │
-└─────────────────────────────────────────────────────────┘
+This ensures the recovery instruction survives compaction (CLAUDE.md is reloaded after compact).
+
+```bash
+# Marker for cleanup - do not change this format
+TACKLE_MARKER="## ⚠️ TACKLE IN PROGRESS"
+
+# Create or append to CLAUDE.md
+if [ ! -f CLAUDE.md ]; then
+  cat > CLAUDE.md << 'EOF'
+## ⚠️ TACKLE IN PROGRESS
+
+Run `/tackle --resume` to continue.
+EOF
+elif ! grep -q "$TACKLE_MARKER" CLAUDE.md; then
+  cat >> CLAUDE.md << 'EOF'
+
+## ⚠️ TACKLE IN PROGRESS
+
+Run `/tackle --resume` to continue.
+EOF
+fi
 ```
 
-This banner ensures the recovery command survives in conversation history.
+**CLEAN UP CLAUDE.md when tackle completes or aborts:**
+
+```bash
+TACKLE_MARKER="## ⚠️ TACKLE IN PROGRESS"
+
+if [ -f CLAUDE.md ] && grep -q "$TACKLE_MARKER" CLAUDE.md; then
+  # Remove the tackle section (marker + blank line + instruction + blank line)
+  sed -i '/^## ⚠️ TACKLE IN PROGRESS$/,/^Run `\/tackle --resume` to continue\.$/d' CLAUDE.md
+  # Remove any trailing blank lines
+  sed -i -e :a -e '/^\s*$/{ $d; N; ba; }' CLAUDE.md
+  # Remove any leading blank lines
+  sed -i '/./,$!d' CLAUDE.md
+  # If file is now empty, delete it
+  if [ ! -s CLAUDE.md ]; then
+    rm CLAUDE.md
+  fi
+fi
+```
 
 ## Resumption Protocol (ALWAYS FIRST)
 
@@ -992,6 +1025,15 @@ bd close "$MOL_ID" --reason "Tackle complete - PR submitted"
 # 3. Verify cleanup
 bd --no-daemon mol current   # Should show "No molecules in progress"
 gt mol status                # Should show "Nothing on hook"
+
+# 4. CRITICAL: Clean up CLAUDE.md (see COMPACTION RECOVERY section for full script)
+TACKLE_MARKER="## ⚠️ TACKLE IN PROGRESS"
+if [ -f CLAUDE.md ] && grep -q "$TACKLE_MARKER" CLAUDE.md; then
+  sed -i '/^## ⚠️ TACKLE IN PROGRESS$/,/^Run `\/tackle --resume` to continue\.$/d' CLAUDE.md
+  sed -i -e :a -e '/^\s*$/{ $d; N; ba; }' CLAUDE.md
+  sed -i '/./,$!d' CLAUDE.md
+  [ ! -s CLAUDE.md ] && rm CLAUDE.md
+fi
 ```
 
 **OUTPUT THIS BANNER when tackle completes:**
@@ -999,7 +1041,6 @@ gt mol status                # Should show "Nothing on hook"
 ```
 ┌─────────────────────────────────────────────────────────┐
 │  ✅ TACKLE COMPLETE: <issue-id> → PR #<number>          │
-│     No /tackle --resume needed                          │
 └─────────────────────────────────────────────────────────┘
 ```
 
@@ -1008,7 +1049,7 @@ gt mol status                # Should show "Nothing on hook"
 Use after compaction, handoff, or session restart to continue an in-progress tackle.
 
 **What it does:**
-1. Output recovery banner (ensures command survives future compaction)
+1. Write to CLAUDE.md (see **COMPACTION RECOVERY** section) - ensures marker survives future compaction
 2. Run the **Resumption Protocol** (see top of this file)
 3. Load appropriate resource for current step
 4. Continue execution
@@ -1039,6 +1080,17 @@ To abandon a tackle mid-workflow:
    bd update "$ISSUE_ID" --status=open --notes="Tackle aborted"
    ```
 
+4. **Clean up CLAUDE.md**:
+   ```bash
+   TACKLE_MARKER="## ⚠️ TACKLE IN PROGRESS"
+   if [ -f CLAUDE.md ] && grep -q "$TACKLE_MARKER" CLAUDE.md; then
+     sed -i '/^## ⚠️ TACKLE IN PROGRESS$/,/^Run `\/tackle --resume` to continue\.$/d' CLAUDE.md
+     sed -i -e :a -e '/^\s*$/{ $d; N; ba; }' CLAUDE.md
+     sed -i '/./,$!d' CLAUDE.md
+     [ ! -s CLAUDE.md ] && rm CLAUDE.md
+   fi
+   ```
+
 The issue returns to ready state for future work.
 
 **OUTPUT THIS BANNER when tackle is aborted:**
@@ -1046,7 +1098,6 @@ The issue returns to ready state for future work.
 ```
 ┌─────────────────────────────────────────────────────────┐
 │  ⛔ TACKLE ABORTED: <issue-id>                          │
-│     Issue returned to ready state                       │
 └─────────────────────────────────────────────────────────┘
 ```
 
