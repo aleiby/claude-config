@@ -4,7 +4,7 @@ Upstream-aware issue implementation workflow with approval gates.
 Tracks work from initial research through PR submission. Each step is a
 checkpoint that survives session restarts. Gates require explicit approval.
 
-⚠️ Run `/tackle --resume` to load full guidance for the current step.
+**REQUIRED:** Run `/tackle --resume` after compaction or new session to load full guidance.
 
 Usage: gt sling tackle --on <issue-bead>
 
@@ -19,7 +19,7 @@ version = 4
 id = "plan"
 title = "Create implementation plan"
 description = """
-Run `/tackle --resume plan` for full guidance.
+**REQUIRED:** Run `/tackle --resume plan` for full guidance.
 
 Create implementation plan based on:
 - Issue requirements
@@ -37,7 +37,7 @@ description = """
 Present plan to user. Wait for explicit approval.
 DO NOT PROCEED WITHOUT APPROVAL.
 
-Run `/tackle --resume gate-plan` for gate protocol.
+**REQUIRED:** Run `/tackle --resume gate-plan` for gate protocol.
 """
 
 [[steps]]
@@ -45,7 +45,7 @@ id = "branch"
 title = "Create clean branch"
 needs = ["gate-plan"]
 description = """
-Run `/tackle --resume branch` for full guidance.
+**REQUIRED:** Run `/tackle --resume branch` for full guidance.
 """
 
 [[steps]]
@@ -53,7 +53,7 @@ id = "implement"
 title = "Implement solution"
 needs = ["branch"]
 description = """
-Run `/tackle --resume implement` for full guidance.
+**REQUIRED:** Run `/tackle --resume implement` for full guidance.
 
 Implement following upstream conventions.
 Commit atomically with conventional commit messages.
@@ -64,7 +64,7 @@ id = "validate"
 title = "Validate implementation"
 needs = ["implement"]
 description = """
-Run `/tackle --resume validate` for full guidance.
+**REQUIRED:** Run `/tackle --resume validate` for full guidance.
 
 - Run tests
 - Check isolation (single concern)
@@ -91,7 +91,7 @@ Show full PR preview:
 Wait for explicit approval.
 DO NOT MARK PR READY WITHOUT APPROVAL.
 
-Run `/tackle --resume gate-submit` for gate protocol.
+**REQUIRED:** Run `/tackle --resume gate-submit` for gate protocol.
 """
 
 [[steps]]
@@ -99,7 +99,7 @@ id = "submit"
 title = "Submit PR"
 needs = ["gate-submit"]
 description = """
-Run `/tackle --resume submit` for full guidance.
+**REQUIRED:** Run `/tackle --resume submit` for full guidance.
 
 Only after explicit approval:
 1. Mark draft PR as ready for review: gh pr ready
@@ -111,7 +111,7 @@ id = "record"
 title = "Record outcome"
 needs = ["submit"]
 description = """
-Run `/tackle --resume record` for full guidance.
+**REQUIRED:** Run `/tackle --resume record` for full guidance.
 
 Track PR URL and outcome for future learning.
 Update local issue with PR link.
@@ -122,7 +122,7 @@ id = "reflect"
 title = "Reflect"
 needs = ["record"]
 description = """
-Run `/tackle --resume reflect` for full guidance.
+**REQUIRED:** Run `/tackle --resume reflect` for full guidance.
 
 Reflect on issues tackle could help prevent in future runs.
 
