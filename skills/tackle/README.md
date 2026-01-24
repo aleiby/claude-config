@@ -63,7 +63,7 @@ The draft PR on GitHub shows the full summary and test plan:
 ![Draft PR](screenshots/Draft-PR.png)
 
 ### Completion
-After approval, the skill waits for CI to complete and distinguishes new failures from pre-existing ones before marking the PR ready for maintainer review:
+After approval, CI is verified before marking the PR ready for review:
 
 ![Tackle Done](screenshots/Tackle-Done.png)
 
