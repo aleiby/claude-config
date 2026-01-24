@@ -106,6 +106,9 @@ Use template if available, otherwise:
 - [x] Linter passes
 - [x] Rebased on upstream default branch
 - [x] Single concern (isolation verified)
+
+---
+Tackled with [tackle](https://github.com/aleiby/claude-config/tree/master/skills/tackle)
 ```
 
 ## Update Molecule
