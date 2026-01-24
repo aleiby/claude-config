@@ -42,7 +42,7 @@ A Claude Code skill for contributing to open source projects with mandatory huma
 - **Self-improving** - Logs issues and detects patterns across runs; proposes fixes after 2+ occurrences
 - **Session-resilient** - State persists via beads molecules; resume after compaction or new session
 
-## Screenshots
+## In Action
 
 ### Plan Gate
 The first approval gate presents the implementation plan with scope, approach, and alternatives:
