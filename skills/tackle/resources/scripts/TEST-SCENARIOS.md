@@ -488,6 +488,16 @@ source ~/.claude/skills/tackle/resources/scripts/complete-tackle.sh
 gt hook  # Should show nothing hooked
 ```
 
+#### Test 3: SQUASH_SUMMARY is used
+```bash
+# Should have an active tackle molecule on hook
+MOL_ID=$(gt hook --json | jq -r '.attached_molecule')
+export SQUASH_SUMMARY="PR #123: Test feature - clean run"
+source ~/.claude/skills/tackle/resources/scripts/complete-tackle.sh
+# Expected: Squash uses provided summary, not default "Tackle complete"
+# Verify: Check digest created with summary (if visible in bd list)
+```
+
 ---
 
 ### verify-pr-ready.sh
@@ -539,6 +549,59 @@ bash ~/.claude/skills/tackle/resources/scripts/query-friction.sh
 
 ---
 
+### Friction Recording Flow
+
+Tests the full friction recording and query cycle per REFLECT.md.
+
+#### Test 1: Record friction in molecule notes
+```bash
+# Create test molecule
+cd ~/gt
+TEST_MOL=$(bd create --title="Test friction molecule" --type=epic --json | jq -r '.id')
+bd update "$TEST_MOL" --add-label "formula:tackle"
+
+# Record friction in notes (as documented in REFLECT.md)
+bd update "$TEST_MOL" --notes "$(cat <<'EOF'
+FRICTION:
+- ERROR: Used --silent flag (doesn't exist, should be -q)
+- FRICTION: Molecule attachment instructions unclear
+
+CLEAN:
+- Gate flow worked smoothly
+EOF
+)"
+
+# Add friction label
+bd update "$TEST_MOL" --add-label "tackle:friction"
+
+# Verify notes saved
+bd show "$TEST_MOL" --json | jq -r '.[0].notes'
+# Expected: Shows friction content
+```
+
+#### Test 2: Query finds friction in notes
+```bash
+# Close the molecule
+bd close "$TEST_MOL" --reason "Test complete"
+
+# Query should find it
+bash ~/.claude/skills/tackle/resources/scripts/query-friction.sh | jq 'select(.id == "'$TEST_MOL'")'
+# Expected: JSON with id, close_reason, notes showing friction content
+```
+
+#### Test 3: Notes replace (not append)
+```bash
+# Create test issue
+TEST_ID=$(bd create --title="Notes replace test" --type=task --json | jq -r '.id')
+bd update "$TEST_ID" --notes "First notes"
+bd update "$TEST_ID" --notes "Second notes"
+bd show "$TEST_ID" --json | jq -r '.[0].notes'
+# Expected: "Second notes" (not "First notes\nSecond notes")
+bd close "$TEST_ID" --reason "cleanup"
+```
+
+---
+
 ## Cleanup
 
 After testing, remove the temp repo:
@@ -566,23 +629,17 @@ Test timestamps to verify:
 
 ## sling-tackle.sh
 
-### Known Issues: Molecule Step Linking
+### Molecule Step Linking
 
-**Bugs (cannot be worked around in tackle):**
-- bd-69d7: gt sling --on adds root molecule as BLOCKING dep instead of parent-child
-- bd-v29h: `bd update --parent` silently fails on wisps (parent_id stays null)
-
-**Impact:** Steps are linked to molecules via blocking deps instead of parent-child. This means:
-- `bd list --parent` and `bd ready --parent` don't work
-- Must use `gt hook --json` or `bd dep list --type=blocks` to find steps
+Steps are linked to molecules via **parent-child deps** (not blocking deps).
 
 **Key command to find steps:**
 ```bash
-# Find steps via blocking deps (the only link that exists)
-bd dep list "$MOL_ID" --direction=up --type=blocks --json | jq -r '.[].id // empty'
+# Find steps via parent-child deps
+bd dep list "$MOL_ID" --direction=up --type=parent-child --json | jq -r '.[].id // empty'
 ```
 
-**Test: Verify steps are findable via blocking deps:**
+**Test: Verify steps are findable via parent-child deps:**
 ```bash
 # After gt sling tackle --on <issue>
 HOOK_JSON=$(gt hook --json)
@@ -591,15 +648,15 @@ MOL_ID=$(echo "$HOOK_JSON" | jq -r '.attached_molecule')
 # Primary: gt hook has step data
 echo "$HOOK_JSON" | jq '.progress.ready_steps'  # Should list step IDs
 
-# Fallback: blocking deps link steps to molecule
-bd dep list "$MOL_ID" --direction=up --type=blocks --json | jq -r '.[].id'  # Should list step IDs
+# Fallback: parent-child deps link steps to molecule
+bd dep list "$MOL_ID" --direction=up --type=parent-child --json | jq -r '.[].id'  # Should list step IDs
 ```
 
 ---
 
 ## Test Results Log
 
-Last tested: 2026-01-23
+Last tested: 2026-01-24
 
 | Script | Test | Result |
 |--------|------|--------|
@@ -614,8 +671,18 @@ Last tested: 2026-01-23
 | context-recovery.sh | No hook/remote error | ✅ |
 | pr-check-idempotent.sh | No existing PR | ✅ |
 | complete-step.sh | Invalid context error | ✅ |
+| complete-tackle.sh | No MOL_ID error | ✅ |
+| complete-tackle.sh | SQUASH_SUMMARY used | ✅ |
 | ci-status-check.sh | Real PR #893 (pre-existing failures) | ✅ |
 | verify-pr-ready.sh | Closed PR (not draft) | ✅ |
 | query-friction.sh | Runs without error | ✅ |
+| friction recording | Notes replace (not append) | ✅ |
+| friction recording | Record in molecule notes | ✅ |
+| friction recording | Add friction label | ✅ |
+| friction recording | Query finds friction in notes | ✅ |
 | record-pr-stats.sh | Missing ISSUE_ID error | ✅ |
 | report-problem.sh | Missing STEP error | ✅ |
+| sling-tackle.sh | Steps via parent-child deps | ✅ |
+| env-check.sh | Missing BD_ACTOR error | ✅ |
+| env-check.sh | Missing SKILL_DIR error | ✅ |
+| env-check.sh | All env vars present | ✅ |

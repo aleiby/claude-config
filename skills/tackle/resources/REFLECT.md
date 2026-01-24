@@ -34,7 +34,7 @@ This step runs **immediately after PR submission** (not after merge). Capture fr
 ### 4. Molecule Cleanup?
 - Are ALL steps closed (not just reflect)?
 - Is the ROOT MOLECULE closed?
-- Did I record issues in close_reason for pattern detection?
+- Did I record issues in molecule notes for pattern detection?
 
 **Only write "Clean run - no issues" if you've reviewed ALL categories and found nothing.**
 
@@ -75,7 +75,7 @@ source "$SKILL_DIR/resources/scripts/query-friction.sh"
 # Or run directly: bash "$SKILL_DIR/resources/scripts/query-friction.sh"
 ```
 
-Check notes and close_reason fields for recurring issues before proposing fixes.
+Check molecule notes for recurring issues before proposing fixes.
 
 ## When to Fix
 
@@ -100,25 +100,32 @@ Subjective issues that need validation:
 - "Step took multiple attempts" - might be user error
 
 **Rules:**
-- 1 occurrence: Note in molecule close_reason, wait for pattern
+- 1 occurrence: Note in molecule notes, wait for pattern
 - 2+ occurrences: Propose fix
 - 3+ occurrences: Definitely fix
 
 ## Recording Issues
 
-When there are issues, record them in the close_reason using this format:
+When there are issues, record them in the **molecule notes** (not step close_reason). This ensures friction data survives squashing and is queryable for pattern detection.
 
-```
-Issues found:
+```bash
+# Add friction to molecule notes (MOL_ID from context-recovery.sh)
+bd update "$MOL_ID" --notes "$(cat <<'EOF'
+FRICTION:
 - ERROR: Used --silent flag (doesn't exist, should be -q)
 - FRICTION: Molecule attachment instructions unclear
 
-Clean areas:
+CLEAN:
 - Gate flow worked smoothly
 - Validation steps clear
+EOF
+)"
+
+# Add friction label for querying
+bd update "$MOL_ID" --add-label "tackle:friction"
 ```
 
-This becomes queryable history for pattern detection.
+This becomes queryable history for pattern detection. The friction notes are also included in the squash summary (see Completing Reflect).
 
 ## Proposing Skill Improvements
 
@@ -149,37 +156,37 @@ Present for review. Only apply with explicit approval.
 ### If the run was smooth
 
 ```bash
+# Close reflect step
 bd close <reflect-step-id> --reason "Clean run - no issues"
+
+# Set squash summary and complete
+export SQUASH_SUMMARY="PR #<number>: <brief description> - clean run"
+source "$SKILL_DIR/resources/scripts/complete-tackle.sh"
 ```
 
 ### If there were issues
 
-Add the friction label (for pattern detection) and close with the format from "Recording Issues":
+First record friction in molecule notes (see Recording Issues above), then:
 
 ```bash
-bd update <molecule-id> --add-label "tackle:friction"
-bd close <reflect-step-id> --reason "$(cat <<'EOF'
-Issues found:
-- <issue 1>
-- <issue 2>
-EOF
-)"
-```
+# Close reflect step
+bd close <reflect-step-id> --reason "See molecule notes for friction details"
 
-### IMPORTANT: Close the Root Molecule
-
-**Molecules do NOT auto-close.** After closing the reflect step, you must explicitly close the root molecule and unhook:
-
-```bash
+# Set squash summary with friction summary
+export SQUASH_SUMMARY="PR #<number>: <brief description> - friction: <1-line summary>"
 source "$SKILL_DIR/resources/scripts/complete-tackle.sh"
 ```
 
-This script:
-1. Closes the root molecule
-2. Verifies molecule closure
-3. Unhooks the issue
+### What complete-tackle.sh Does
 
-**Why this matters**: Open molecules pollute future queries. Pattern detection depends on closed molecules with proper close_reason fields.
+The script:
+1. **Squashes the molecule** - Creates a digest with SQUASH_SUMMARY for audit trail
+2. **Closes the root molecule** - Marks work complete
+3. **Unhooks the issue** - Frees your hook for other work
+
+**Why squash?** Tackle creates wisps (ephemeral molecules) due to a limitation in `gt sling --on`. Squashing preserves the audit trail before wisps disappear.
+
+**Why this matters**: Open molecules pollute future queries. Pattern detection depends on closed molecules with friction recorded in notes.
 
 ## Example
 

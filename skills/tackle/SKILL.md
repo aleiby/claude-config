@@ -824,13 +824,19 @@ After completing the reflect assessment:
 
 ```bash
 # 1. Close the reflect step (STEP_ID from bd --no-daemon mol current)
-bd close "$STEP_ID" --reason "Clean run - no issues"  # or summary of findings
+bd close "$STEP_ID" --reason "Clean run - no issues"  # or "See molecule notes"
 
-# 2. Close molecule and unhook
+# 2. Set squash summary (captures PR outcome for audit trail)
+# Include friction summary if issues found (details go in molecule notes per REFLECT.md)
+export SQUASH_SUMMARY="PR #123: Added feature X - clean implementation"
+
+# 3. Close molecule and unhook
 source "$SKILL_DIR/resources/scripts/complete-tackle.sh"
 ```
 
-The script closes the root molecule, verifies closure, and unhooks the issue (freeing your hook for other work while the PR awaits review).
+The script squashes the molecule (creating a digest for audit trail), closes it, and unhooks the issue (freeing your hook for other work while the PR awaits review).
+
+**Why squash?** Tackle creates wisps (ephemeral molecules) due to a known limitation in `gt sling --on`. Squashing preserves the audit trail before the wisp disappears.
 
 **OUTPUT THIS BANNER when tackle completes:**
 

@@ -13,7 +13,9 @@ Context is read from the bonded bead:
 - Upstream: stored in bead notes before slinging (grep 'upstream:')
 """
 formula = "tackle"
-version = 5
+type = "workflow"
+phase = "liquid"  # Persistent molecule - needs audit trail for PR outcome tracking
+version = 7
 
 [[steps]]
 id = "plan"
@@ -106,7 +108,9 @@ description = """
 Reflect on issues tackle could help prevent in future runs.
 
 **Fix immediately**: Objective errors (wrong flags, syntax errors).
-**Note for pattern detection**: Subjective friction via molecule history.
+**Note for pattern detection**: Record friction in molecule notes before closing.
 
 Ignore task-specific issues (test failures, upstream quirks).
+
+Set SQUASH_SUMMARY before running complete-tackle.sh to preserve audit trail.
 """

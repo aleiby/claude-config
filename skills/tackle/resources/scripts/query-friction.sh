@@ -9,8 +9,8 @@
 # Outputs:
 #   Prints JSON of closed tackle molecules that had friction, showing:
 #   - id: molecule ID
-#   - close_reason: why it was closed (contains friction notes)
-#   - notes: additional notes
+#   - close_reason: why it was closed
+#   - notes: friction details (recorded in molecule notes before squashing)
 #
 # Use this to detect recurring issues before proposing skill fixes.
 # Rule: 2+ occurrences = propose fix, 3+ = definitely fix

@@ -4,9 +4,11 @@
 # Usage: source complete-tackle.sh
 #
 # Inputs (optional):
-#   MOL_ID - The molecule ID to close (will be recovered from hook if not set)
+#   MOL_ID        - The molecule ID to close (will be recovered from hook if not set)
+#   SQUASH_SUMMARY - Summary for the digest (default: "Tackle complete")
 #
 # Side effects:
+#   - Squashes the molecule (creates digest for audit trail)
 #   - Closes the root molecule
 #   - Verifies molecule is closed
 #   - Unhooks the issue (frees hook for other work)
@@ -29,6 +31,11 @@ if [ -z "$MOL_ID" ]; then
   echo "ERROR: No molecule ID found. Check gt hook or context-recovery.sh output."
   exit 1
 fi
+
+# Squash molecule to create digest (preserves audit trail since wisps don't sync)
+# The summary captures PR outcome for future learning
+SQUASH_SUMMARY="${SQUASH_SUMMARY:-Tackle complete}"
+bd mol squash "$MOL_ID" --summary "$SQUASH_SUMMARY" 2>/dev/null || echo "Note: squash skipped (may already be closed or not supported)"
 
 # Close the root molecule
 bd close "$MOL_ID" --reason "Tackle complete - PR submitted"
