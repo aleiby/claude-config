@@ -63,7 +63,7 @@ The draft PR on GitHub shows the full summary and test plan:
 ![Draft PR](screenshots/Draft-PR.png)
 
 ### Completion
-After approval, the PR is marked ready and the tackle completes:
+After approval, CI status is checked before marking the PR ready for review:
 
 ![Tackle Done](screenshots/Tackle-Done.png)
 
