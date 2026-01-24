@@ -45,7 +45,7 @@ A Claude Code skill for contributing to open source projects with mandatory huma
 ## In Action
 
 ### Plan Gate
-The first approval gate presents the implementation plan with scope, approach, and alternatives:
+After researching upstream issues and PRs, the plan is presented for approval:
 
 ![Plan Gate](screenshots/Tackle-Plan-Gate.png)
 
@@ -54,11 +54,11 @@ Ask for rationale and the agent explains tradeoffs:
 ![Plan Rationale](screenshots/Tackle-Plan-Explain.png)
 
 ### Pre-Submit Gate
-Before submitting, a draft PR is created for review:
+After implementation and validation, a draft PR is created for review:
 
 ![Draft PR Gate](screenshots/Draft-PR-Gate.png)
 
-The draft PR on GitHub shows the full summary and test plan:
+The draft PR on GitHub:
 
 ![Draft PR](screenshots/Draft-PR.png)
 
