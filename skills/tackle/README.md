@@ -42,6 +42,31 @@ A Claude Code skill for contributing to open source projects with mandatory huma
 - **Self-improving** - Logs issues and detects patterns across runs; proposes fixes after 2+ occurrences
 - **Session-resilient** - State persists via beads molecules; resume after compaction or new session
 
+## Screenshots
+
+### Plan Gate
+The first approval gate presents the implementation plan with scope, approach, and alternatives:
+
+![Plan Gate](screenshots/Tackle-Plan-Gate.png)
+
+Ask for rationale and the agent explains tradeoffs:
+
+![Plan Rationale](screenshots/Tackle-Plan-Explain.png)
+
+### Pre-Submit Gate
+Before submitting, a draft PR is created for review:
+
+![Draft PR Gate](screenshots/Draft-PR-Gate.png)
+
+The draft PR on GitHub shows the full summary and test plan:
+
+![Draft PR](screenshots/Draft-PR.png)
+
+### Completion
+After approval, the PR is marked ready and the tackle completes:
+
+![Tackle Done](screenshots/Tackle-Done.png)
+
 ## Inspiration
 
 Built on ideas from:
