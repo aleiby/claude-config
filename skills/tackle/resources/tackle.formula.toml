@@ -13,14 +13,12 @@ Context is read from the bonded bead:
 - Upstream: stored in bead notes before slinging (grep 'upstream:')
 """
 formula = "tackle"
-version = 4
+version = 5
 
 [[steps]]
 id = "plan"
-title = "Create implementation plan"
+title = "[PLAN] Run /tackle --resume plan"
 description = """
-**REQUIRED:** Run `/tackle --resume plan` for full guidance.
-
 Create implementation plan based on:
 - Issue requirements
 - Upstream context (patterns, conventions)
@@ -29,43 +27,37 @@ Create implementation plan based on:
 
 [[steps]]
 id = "gate-plan"
-title = "GATE: Plan approval"
+title = "[GATE-PLAN] Run /tackle --resume gate-plan"
 needs = ["plan"]
 description = """
 **MANDATORY STOP**
 
 Present plan to user. Wait for explicit approval.
 DO NOT PROCEED WITHOUT APPROVAL.
-
-**REQUIRED:** Run `/tackle --resume gate-plan` for gate protocol.
 """
 
 [[steps]]
 id = "branch"
-title = "Create clean branch"
+title = "[BRANCH] Run /tackle --resume branch"
 needs = ["gate-plan"]
 description = """
-**REQUIRED:** Run `/tackle --resume branch` for full guidance.
+Create clean branch from upstream default branch.
 """
 
 [[steps]]
 id = "implement"
-title = "Implement solution"
+title = "[IMPLEMENT] Run /tackle --resume implement"
 needs = ["branch"]
 description = """
-**REQUIRED:** Run `/tackle --resume implement` for full guidance.
-
 Implement following upstream conventions.
 Commit atomically with conventional commit messages.
 """
 
 [[steps]]
 id = "validate"
-title = "Validate implementation"
+title = "[VALIDATE] Run /tackle --resume validate"
 needs = ["implement"]
 description = """
-**REQUIRED:** Run `/tackle --resume validate` for full guidance.
-
 - Run tests
 - Check isolation (single concern)
 - Verify branch is rebased on upstream
@@ -73,7 +65,7 @@ description = """
 
 [[steps]]
 id = "gate-submit"
-title = "GATE: Pre-submit approval"
+title = "[GATE-SUBMIT] Run /tackle --resume gate-submit"
 needs = ["validate"]
 description = """
 **MANDATORY STOP**
@@ -83,24 +75,15 @@ On entering this gate:
 2. If not, create draft PR on upstream
 3. Present for review
 
-Show full PR preview:
-- Draft PR URL on upstream
-- Title, body, files changed
-- Validation results
-
 Wait for explicit approval.
 DO NOT MARK PR READY WITHOUT APPROVAL.
-
-**REQUIRED:** Run `/tackle --resume gate-submit` for gate protocol.
 """
 
 [[steps]]
 id = "submit"
-title = "Submit PR"
+title = "[SUBMIT] Run /tackle --resume submit"
 needs = ["gate-submit"]
 description = """
-**REQUIRED:** Run `/tackle --resume submit` for full guidance.
-
 Only after explicit approval:
 1. Mark draft PR as ready for review: gh pr ready
 2. Verify PR is no longer in draft state
@@ -108,22 +91,18 @@ Only after explicit approval:
 
 [[steps]]
 id = "record"
-title = "Record outcome"
+title = "[RECORD] Run /tackle --resume record"
 needs = ["submit"]
 description = """
-**REQUIRED:** Run `/tackle --resume record` for full guidance.
-
 Track PR URL and outcome for future learning.
 Update local issue with PR link.
 """
 
 [[steps]]
 id = "reflect"
-title = "Reflect"
+title = "[REFLECT] Run /tackle --resume reflect"
 needs = ["record"]
 description = """
-**REQUIRED:** Run `/tackle --resume reflect` for full guidance.
-
 Reflect on issues tackle could help prevent in future runs.
 
 **Fix immediately**: Objective errors (wrong flags, syntax errors).
