@@ -38,6 +38,15 @@ For small bug fixes, docs, or focused changes - proceed without upstream issue.
 - `path/to/file1.go` - <what changes>
 - `path/to/file2.go` - <what changes>
 
+### Tests (TDD)
+<Required for new functionality where project has test infrastructure>
+- Test file: `path/to/file_test.go`
+- Test cases:
+  - <Test case 1 - what it verifies>
+  - <Test case 2 - what it verifies>
+- For bug fixes: regression test proving the bug is fixed
+- For features: unit tests demonstrating the feature works
+
 ### Approach
 <Step-by-step implementation approach>
 
@@ -50,6 +59,11 @@ For small bug fixes, docs, or focused changes - proceed without upstream issue.
 - <Any potential issues>
 - <Hot areas to be careful with>
 ```
+
+**Note**: Skip Tests section only when:
+- Project has no test infrastructure
+- Change is purely documentation
+- Change is trivial config that upstream doesn't test
 
 ### Update Molecule
 
@@ -123,7 +137,42 @@ branch_base: "upstream/main"
 
 ## Implement Phase
 
-Write the code following upstream conventions.
+Follow test-driven development (TDD) workflow.
+
+### Step 1: Write Tests First
+
+If tests were planned (see Plan Structure above):
+
+1. **Write the test cases** from your plan
+2. **Run tests - verify they FAIL**
+   - Tests should fail because the feature/fix doesn't exist yet
+   - If tests pass, either the issue is already fixed or tests are wrong
+3. **Commit the failing tests** (optional, some prefer single commit)
+
+```bash
+# Run tests to confirm they fail
+go test ./... -run TestNewFeature
+# Expected: FAIL
+
+# Optional: commit failing tests separately
+git commit -m "test(scope): add tests for feature (red phase)"
+```
+
+### Step 2: Implement to Make Tests Pass
+
+Write the minimum code needed to make tests pass:
+
+1. **Implement the fix/feature**
+2. **Run tests - verify they PASS**
+3. **Commit the implementation**
+
+```bash
+# Run tests to confirm they pass
+go test ./...
+# Expected: PASS
+
+git commit -m "fix(scope): implement feature (#123)"
+```
 
 ### Guidelines
 
@@ -145,10 +194,9 @@ Write the code following upstream conventions.
    - Don't refactor beyond scope
    - Don't add features not requested
 
-4. **Test as you go**:
-   - Run tests frequently
-   - Add tests for new functionality
-   - Don't break existing tests
+4. **Don't break existing tests**:
+   - Run full test suite before considering implementation complete
+   - Fix any regressions introduced
 
 ### Commit Format
 
