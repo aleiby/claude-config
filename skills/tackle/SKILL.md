@@ -478,7 +478,7 @@ This sets: `NEXT_STEP`
 
 This marks the step complete and advances to the next step. The assignee update is required because `bd mol current` filters by assignee - without it, the molecule becomes invisible.
 
-**Note:** Due to bd-69d7/bd-v29h, steps are linked via blocking deps instead of parent-child. The script uses `gt hook --json` as primary and falls back to `bd dep list --type=blocks` to find steps.
+**Note:** Steps are linked to molecules via parent-child deps. The script uses `gt hook --json` as primary and falls back to `bd dep list --type=parent-child` to find steps.
 
 **Continue until reflect is complete and root molecule is closed.** Tackle is not done until then.
 
