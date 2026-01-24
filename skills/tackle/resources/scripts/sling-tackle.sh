@@ -17,7 +17,8 @@
 #   - Claims first step with current actor
 #
 # Note: Steps are linked to molecule via parent-child deps.
-#   Use gt hook --json or bd dep list --type=parent-child to find steps.
+#   Use gt hook --json (primary), bd ready --mol (fallback), or
+#   bd dep list --type=parent-child (last resort) to find ready steps.
 #
 # Errors: Exits 1 with guidance if sling fails or BD_ACTOR not set
 

@@ -26,7 +26,14 @@ fi
 HOOK_JSON=$(gt hook --json 2>/dev/null || echo '{}')
 STEP_ID=$(echo "$HOOK_JSON" | jq -r '.progress.ready_steps[0] // empty')
 
-# Fallback: Find steps via parent-child deps (steps are children of molecule)
+# Fallback: Use bd ready --mol to find actually-ready steps (respects blocking deps)
+# Note: --mol requires --no-daemon for direct database access
+if [ -z "$STEP_ID" ]; then
+  STEP_ID=$(bd --no-daemon ready --mol "$MOL_ID" --json 2>/dev/null | \
+    jq -r '[.steps[].issue | select(.status == "open")][0].id // empty' || echo "")
+fi
+
+# Second fallback: Find steps via parent-child deps if bd ready fails
 if [ -z "$STEP_ID" ]; then
   STEP_ID=$(bd dep list "$MOL_ID" --direction=up --type=parent-child --json 2>/dev/null | \
     jq -r '[.[] | select(.status == "open")][0].id // empty' || echo "")

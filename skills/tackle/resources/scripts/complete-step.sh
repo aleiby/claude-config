@@ -36,9 +36,10 @@ HOOK_JSON=$(gt hook --json 2>/dev/null || echo '{}')
 NEXT_STEP=$(echo "$HOOK_JSON" | jq -r '.progress.ready_steps[0] // empty')
 
 # Fallback: Use bd ready --mol to find actually-ready steps (respects blocking deps)
+# Note: --mol requires --no-daemon for direct database access
 if [ -z "$NEXT_STEP" ]; then
-  NEXT_STEP=$(bd ready --mol "$MOL_ID" --json 2>/dev/null | \
-    jq -r --arg closed "$STEP_ID" '[.[] | select(.id != $closed)][0].id // empty' || echo "")
+  NEXT_STEP=$(bd --no-daemon ready --mol "$MOL_ID" --json 2>/dev/null | \
+    jq -r --arg closed "$STEP_ID" '[.steps[].issue | select(.id != $closed and .status == "open")][0].id // empty' || echo "")
 fi
 
 # Second fallback: Find steps via parent-child deps if bd ready fails

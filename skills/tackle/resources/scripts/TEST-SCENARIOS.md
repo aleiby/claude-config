@@ -633,23 +633,105 @@ Test timestamps to verify:
 
 Steps are linked to molecules via **parent-child deps** (not blocking deps).
 
-**Key command to find steps:**
+**Finding ready steps (in priority order):**
 ```bash
-# Find steps via parent-child deps
-bd dep list "$MOL_ID" --direction=up --type=parent-child --json | jq -r '.[].id // empty'
+# 1. Primary: gt hook has step data
+HOOK_JSON=$(gt hook --json)
+echo "$HOOK_JSON" | jq '.progress.ready_steps'
+
+# 2. Fallback: bd ready --mol (respects blocking deps between steps)
+# IMPORTANT: --mol requires --no-daemon for direct database access
+bd --no-daemon ready --mol "$MOL_ID" --json | jq -r '.steps[].issue.id'
+
+# 3. Last resort: parent-child deps (finds ALL open steps, ignores blocking deps)
+bd dep list "$MOL_ID" --direction=up --type=parent-child --json | jq -r '[.[] | select(.status == "open")][].id'
 ```
 
-**Test: Verify steps are findable via parent-child deps:**
+**IMPORTANT:** Use `bd ready --mol` over `bd dep list --type=parent-child` because the latter
+doesn't respect blocking dependencies between steps and can return steps that aren't actually ready.
+
+**Test: Verify steps are findable:**
 ```bash
 # After gt sling tackle --on <issue>
 HOOK_JSON=$(gt hook --json)
 MOL_ID=$(echo "$HOOK_JSON" | jq -r '.attached_molecule')
 
 # Primary: gt hook has step data
-echo "$HOOK_JSON" | jq '.progress.ready_steps'  # Should list step IDs
+echo "$HOOK_JSON" | jq '.progress.ready_steps'  # Should list ready step IDs
 
-# Fallback: parent-child deps link steps to molecule
-bd dep list "$MOL_ID" --direction=up --type=parent-child --json | jq -r '.[].id'  # Should list step IDs
+# Fallback: bd ready --mol respects blocking deps
+bd --no-daemon ready --mol "$MOL_ID" --json | jq -r '.steps[].issue.id'  # Should list only ready steps
+```
+
+---
+
+## Known Issues & Bugs Found
+
+### gt hook ready_steps Bug (Found 2026-01-24)
+
+**Issue:** `gt hook` incorrectly counts ready steps in molecules.
+
+**Observed behavior:**
+```
+Progress: [░░░░░░░░░░░░░░░░░░░░] 0% (0/9 steps)
+  Done:        0
+  In Progress: 0
+  Ready:       9    ← WRONG
+  Blocked:     0    ← WRONG
+```
+
+**Actual state:** Only 1 step was ready; 8 were blocked by inter-step dependencies.
+
+**Root cause:** `gt hook` counts all child steps as "ready" if the parent molecule dependency is satisfied, without checking blocking dependencies between sibling steps.
+
+**Dependency chain verified:**
+```
+kfya (PLAN) → jgo2 (GATE) → ccr7 (BRANCH) → kgiv (IMPLEMENT) →
+w5er (VALIDATE) → k2qc (GATE) → he2c (SUBMIT) → qy44 (RECORD) → 6724 (REFLECT)
+```
+
+**Mitigation (2026-01-24):** Scripts updated to use `bd ready --mol` as fallback instead of
+relying solely on `gt hook` or `bd dep list --type=parent-child`:
+- `complete-step.sh` - Fixed in commit 5a98bea9
+- `claim-step.sh` - Fixed to match
+
+**Workaround:** If scripts fail, manually check step dependencies with `bd show <step-id>` before claiming.
+
+---
+
+## Test Cleanup Checklist
+
+**IMPORTANT:** After creating test molecules/issues, always clean up:
+
+```bash
+# 1. Close test molecule steps (use --force for dependency chains)
+bd close <step-ids...> --force --reason="test cleanup"
+
+# 2. Close test molecule parent
+bd close <mol-id> --reason="test cleanup"
+
+# 3. Close test issue (the hooked bead)
+bd close <issue-id> --reason="test complete"
+
+# 4. Verify hook is clear
+gt hook  # Should show "Nothing on hook"
+
+# 5. Sync changes
+bd sync --flush-only
+```
+
+**Test beads to watch for:**
+- Titles starting with "Test:" or "Test sling"
+- Molecules with `formula:tackle` label but no real work
+- Orphaned molecule steps (parent closed, children open)
+
+**Query for orphaned test artifacts:**
+```bash
+# Find open test issues
+bd list --status=open | grep -i "test"
+
+# Find molecules with closed parents but open children
+bd list --type=epic --status=closed --label=formula:tackle
 ```
 
 ---
@@ -668,9 +750,11 @@ Last tested: 2026-01-24
 | cache-freshness.sh | Fresh cache (real bead) | ✅ |
 | cache-freshness.sh | Stale cache (real bead) | ✅ |
 | claim-step.sh | No hook (graceful) | ✅ |
+| claim-step.sh | bd ready --mol fallback | ⚠️ needs test |
 | context-recovery.sh | No hook/remote error | ✅ |
 | pr-check-idempotent.sh | No existing PR | ✅ |
 | complete-step.sh | Invalid context error | ✅ |
+| complete-step.sh | bd ready --mol fallback | ⚠️ needs test |
 | complete-tackle.sh | No MOL_ID error | ✅ |
 | complete-tackle.sh | SQUASH_SUMMARY used | ✅ |
 | ci-status-check.sh | Real PR #893 (pre-existing failures) | ✅ |
@@ -682,7 +766,7 @@ Last tested: 2026-01-24
 | friction recording | Query finds friction in notes | ✅ |
 | record-pr-stats.sh | Missing ISSUE_ID error | ✅ |
 | report-problem.sh | Missing STEP error | ✅ |
-| sling-tackle.sh | Steps via parent-child deps | ✅ |
+| sling-tackle.sh | Steps findable (gt hook + bd ready --mol) | ✅ |
 | env-check.sh | Missing BD_ACTOR error | ✅ |
 | env-check.sh | Missing SKILL_DIR error | ✅ |
 | env-check.sh | All env vars present | ✅ |
