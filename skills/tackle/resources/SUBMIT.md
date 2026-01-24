@@ -108,8 +108,10 @@ Use template if available, otherwise:
 - [x] Single concern (isolation verified)
 
 ---
-Tackled with [tackle](https://github.com/aleiby/claude-config/tree/master/skills/tackle)
+🤖 Tackled with [Claude Code](https://github.com/aleiby/claude-config/tree/master/skills/tackle)
 ```
+
+**Note:** Use this footer instead of the default "Generated with Claude Code" line - do not include both.
 
 ## Update Molecule
 
