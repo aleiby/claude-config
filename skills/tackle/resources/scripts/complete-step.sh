@@ -35,9 +35,15 @@ bd close "$STEP_ID" --continue
 HOOK_JSON=$(gt hook --json 2>/dev/null || echo '{}')
 NEXT_STEP=$(echo "$HOOK_JSON" | jq -r '.progress.ready_steps[0] // empty')
 
-# Fallback: Find steps via parent-child deps (steps are children of molecule)
-# Filter for open steps that aren't the one we just closed
+# Fallback: Use bd ready --mol to find actually-ready steps (respects blocking deps)
 if [ -z "$NEXT_STEP" ]; then
+  NEXT_STEP=$(bd ready --mol "$MOL_ID" --json 2>/dev/null | \
+    jq -r --arg closed "$STEP_ID" '[.[] | select(.id != $closed)][0].id // empty' || echo "")
+fi
+
+# Second fallback: Find steps via parent-child deps if bd ready fails
+if [ -z "$NEXT_STEP" ]; then
+  echo "No ready steps in molecule (may be blocked)."
   NEXT_STEP=$(bd dep list "$MOL_ID" --direction=up --type=parent-child --json 2>/dev/null | \
     jq -r --arg closed "$STEP_ID" '[.[] | select(.id != $closed and .status == "open")][0].id // empty' || echo "")
 fi
