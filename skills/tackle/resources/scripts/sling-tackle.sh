@@ -16,10 +16,8 @@
 #   - Slings tackle formula (creates molecule, hooks issue)
 #   - Claims first step with current actor
 #
-# Known issues (bd-69d7, bd-v29h):
-#   Steps are linked via BLOCKING deps instead of parent-child.
-#   bd update --parent doesn't work on wisps, so we can't fix this.
-#   Use gt hook --json or bd dep list --type=blocks to find steps.
+# Note: Steps are linked to molecule via parent-child deps.
+#   Use gt hook --json or bd dep list --type=parent-child to find steps.
 #
 # Errors: Exits 1 with guidance if sling fails or BD_ACTOR not set
 

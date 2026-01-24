@@ -13,7 +13,6 @@
 #   - Use when bd mol current shows a step but you're not the assignee
 #   - Updates step to in_progress with current BD_ACTOR as assignee
 #   - Uses gt hook --json (primary) or bd dep list (fallback)
-#   - Uses blocking deps to find steps (workaround for bd-69d7, bd-v29h)
 
 set -euo pipefail
 
@@ -27,9 +26,9 @@ fi
 HOOK_JSON=$(gt hook --json 2>/dev/null || echo '{}')
 STEP_ID=$(echo "$HOOK_JSON" | jq -r '.progress.ready_steps[0] // empty')
 
-# Fallback: Find steps via blocking deps (bd-69d7 workaround - steps block molecule instead of parent-child)
+# Fallback: Find steps via parent-child deps (steps are children of molecule)
 if [ -z "$STEP_ID" ]; then
-  STEP_ID=$(bd dep list "$MOL_ID" --direction=up --type=blocks --json 2>/dev/null | \
+  STEP_ID=$(bd dep list "$MOL_ID" --direction=up --type=parent-child --json 2>/dev/null | \
     jq -r '[.[] | select(.status == "open")][0].id // empty' || echo "")
 fi
 
