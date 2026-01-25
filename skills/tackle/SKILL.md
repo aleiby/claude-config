@@ -67,6 +67,12 @@ source "$SKILL_DIR/resources/scripts/report-problem.sh"
 
 Manual `bd update` commands will miss side effects like `--status=deferred`. Always use the provided scripts.
 
+**Use `--no-daemon` for molecule queries.** Commands that query molecule state require direct database access:
+- `bd --no-daemon mol current` - Show current molecule state
+- `bd --no-daemon ready --mol <id>` - Find ready steps in molecule
+
+Without `--no-daemon`, these commands fail with "requires direct database access" error.
+
 **Note:** Sub-agent resources (PROJECT-RESEARCH.md, etc.) are loaded conditionally by sub-agents - don't load those in the main agent.
 
 ## Resumption Protocol (ALWAYS FIRST)
@@ -491,7 +497,7 @@ This sets: `NEXT_STEP`
 
 This marks the step complete and advances to the next step. The assignee update is required because `bd mol current` filters by assignee - without it, the molecule becomes invisible.
 
-**Note:** Steps are linked to molecules via parent-child deps. The script uses `gt hook --json` as primary, falls back to `bd ready --mol` (which respects blocking deps), and uses `bd dep list --type=parent-child` as last resort.
+**Note:** Steps are linked to molecules via parent-child deps. The script uses `gt hook --json` as primary, falls back to `bd --no-daemon ready --mol` (which respects blocking deps), and uses `bd dep list --type=parent-child` as last resort.
 
 **Continue until reflect is complete and root molecule is closed.** Tackle is not done until then.
 
