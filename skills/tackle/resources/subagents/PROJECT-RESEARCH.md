@@ -160,7 +160,7 @@ if [ -z "$CACHE_BEAD" ]; then
     --title "Upstream research: $ORG_REPO" \
     --type task \
     --status deferred \
-    --label tackle-cache \
+    --labels tackle-cache \
     --external-ref "upstream:$ORG_REPO" \
     --description "$RESEARCH_YAML" \
     --notes "last_checked: $NOW" \

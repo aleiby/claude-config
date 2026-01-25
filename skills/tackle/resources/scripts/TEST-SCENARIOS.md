@@ -164,7 +164,7 @@ echo "=== cache-freshness.sh (with real cache bead) ==="
 # Test 11-12: Cache tests require beads workspace - run from ~/gt
 pushd ~/gt >/dev/null 2>&1 || { echo "  ⏭️ Cache tests skipped (no ~/gt)"; }
 if [ "$(pwd)" = "$HOME/gt" ]; then
-  CACHE_ID=$(bd create --title="Cache: test/repo" --label=tackle-cache --notes="last_checked: $(date -Iseconds)" --json 2>/dev/null | jq -r '.id // empty')
+  CACHE_ID=$(bd create --title="Cache: test/repo" --labels=tackle-cache --notes="last_checked: $(date -Iseconds)" --json 2>/dev/null | jq -r '.id // empty')
   if [ -n "$CACHE_ID" ]; then
     ORG_REPO="test/repo"
     unset CACHE_BEAD CACHE_FRESH
@@ -350,7 +350,7 @@ echo "CACHE_BEAD=$CACHE_BEAD CACHE_FRESH=$CACHE_FRESH"
 #### Test 2: Fresh cache (requires beads setup)
 ```bash
 # Create cache bead with recent timestamp
-bd create --title="Cache: org/repo" --label=tackle-cache --notes="last_checked: $(date -Iseconds)"
+bd create --title="Cache: org/repo" --labels=tackle-cache --notes="last_checked: $(date -Iseconds)"
 ORG_REPO="org/repo"
 source ~/.claude/skills/tackle/resources/scripts/cache-freshness.sh
 # Expected: CACHE_FRESH=true
