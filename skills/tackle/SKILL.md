@@ -56,6 +56,19 @@ source "$SKILL_DIR/resources/scripts/report-problem.sh"
 
 **Why this matters:** Attempting to fix workflow problems mid-tackle often makes things worse. Problems reported to the mayor get fixed in the skill itself, helping all future runs.
 
+## Common Mistakes
+
+**Don't skip step resource files.** Even "simple" steps like record and reflect have scripts that handle edge cases:
+
+| Step | Resource | Required Script |
+|------|----------|-----------------|
+| record | SUBMIT.md | `source record-pr-stats.sh` (sets label + status) |
+| reflect | REFLECT.md | `source complete-tackle.sh` (squash + unhook) |
+
+Manual `bd update` commands will miss side effects like `--status=deferred`. Always use the provided scripts.
+
+**Note:** Sub-agent resources (PROJECT-RESEARCH.md, etc.) are loaded conditionally by sub-agents - don't load those in the main agent.
+
 ## Resumption Protocol (ALWAYS FIRST)
 
 **When to run this:** After session restart (compaction, handoff, new terminal), or when checking status with `/tackle --status`. This ensures you have accurate state before taking any action.
