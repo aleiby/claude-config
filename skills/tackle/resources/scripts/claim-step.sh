@@ -12,7 +12,7 @@
 # Notes:
 #   - Use when bd mol current shows a step but you're not the assignee
 #   - Updates step to in_progress with current BD_ACTOR as assignee
-#   - Uses gt hook --json (primary) or bd dep list (fallback)
+#   - Uses bd ready --mol (primary) or bd dep list (fallback)
 
 set -euo pipefail
 
@@ -22,16 +22,14 @@ if [ -z "${MOL_ID:-}" ]; then
   exit 1
 fi
 
-# Get ready steps from gt hook (more reliable due to bd routing issues)
-HOOK_JSON=$(gt hook --json 2>/dev/null || echo '{}')
-STEP_ID=$(echo "$HOOK_JSON" | jq -r '.progress.ready_steps[0] // empty')
+# DISABLED: gt hook --json doesn't respect blocking deps (bug gt-h5fg12)
+# HOOK_JSON=$(gt hook --json 2>/dev/null || echo '{}')
+# STEP_ID=$(echo "$HOOK_JSON" | jq -r '.progress.ready_steps[0] // empty')
 
-# Fallback: Use bd ready --mol to find actually-ready steps (respects blocking deps)
+# Primary: Use bd ready --mol to find actually-ready steps (respects blocking deps)
 # Note: --mol requires --no-daemon for direct database access
-if [ -z "$STEP_ID" ]; then
-  STEP_ID=$(bd --no-daemon ready --mol "$MOL_ID" --json 2>/dev/null | \
-    jq -r '[.steps[].issue | select(.status == "open")][0].id // empty' || echo "")
-fi
+STEP_ID=$(bd --no-daemon ready --mol "$MOL_ID" --json 2>/dev/null | \
+  jq -r '[.steps[].issue | select(.status == "open")][0].id // empty' || echo "")
 
 # Second fallback: Find steps via parent-child deps if bd ready fails
 if [ -z "$STEP_ID" ]; then
