@@ -43,7 +43,7 @@ fi
 if [ -z "$ORG_REPO" ]; then
   echo "ERROR: No upstream found in issue notes or git remotes. Was this tackle started correctly?"
   if [ -n "$ISSUE_ID" ]; then
-    echo "Fix: bd update $ISSUE_ID --notes 'upstream: <org/repo>'"
+    echo "Fix: bd update $ISSUE_ID --append-notes 'upstream: <org/repo>'"
   fi
   exit 1
 fi

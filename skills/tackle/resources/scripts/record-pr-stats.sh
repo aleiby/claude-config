@@ -46,7 +46,7 @@ LINES_CHANGED=$((${INSERTIONS:-0} + ${DELETIONS:-0}))
 bd update "$ISSUE_ID" \
   --add-label pr-submitted \
   --status=deferred \
-  --notes="PR: $PR_URL
+  --append-notes="PR: $PR_URL
 files: $FILES_CHANGED
 lines: ~$LINES_CHANGED
 submitted: $(date -Iseconds)"
