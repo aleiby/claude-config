@@ -93,6 +93,24 @@ Don't edit files in other agents' directories. If unsure about the directory str
 
 After plan approval, create clean branch from upstream.
 
+### ⚠️ Branch Strategy Warning
+
+**NEVER sync or merge `main` with `upstream/main`.**
+
+The `main` branch may be pinned to a specific upstream tag with local patches applied. It is NOT meant to track upstream HEAD.
+
+| Branch | Purpose | Base |
+|--------|---------|------|
+| `main` | Local build with patches | `upstream/main@tag` + cherry-picks |
+| `test-*` | Temporary test branches | `main` |
+| `fix/*`, `feat/*` | PR branches (clean) | `upstream/main@HEAD` |
+
+- **PR branches**: Always create from `upstream/main` (clean for submission)
+- **Test branches**: Create from `main` for testing with local patches
+- **main branch**: DO NOT modify - managed separately
+
+If you notice `main` is "behind" upstream, that is intentional. Do not attempt to update it.
+
 ### Fetch Latest
 
 ```bash
@@ -139,39 +157,75 @@ branch_base: "upstream/main"
 
 Follow test-driven development (TDD) workflow.
 
+### Testing with Local Patches
+
+If the project requires building (e.g., beads, gastown), test on a temporary branch from `main`:
+
+```bash
+# Save current PR branch
+PR_BRANCH=$(git branch --show-current)
+
+# Create temp test branch from main (has local patches)
+git checkout -b test-wip main
+git cherry-pick $PR_BRANCH  # or cherry-pick specific commits
+
+# Build and test
+go build ./... && go test ./...
+
+# Return to PR branch, delete temp
+git checkout $PR_BRANCH
+git branch -D test-wip
+```
+
+Repeat this cycle for each test iteration. The temp branch is always fresh.
+
 ### Step 1: Write Tests First
 
 If tests were planned (see Plan Structure above):
 
-1. **Write the test cases** from your plan
+1. **Write the test cases** from your plan (on PR branch)
 2. **Run tests - verify they FAIL**
+   - Create temp test branch, cherry-pick, build, run tests
    - Tests should fail because the feature/fix doesn't exist yet
    - If tests pass, either the issue is already fixed or tests are wrong
 3. **Commit the failing tests** (optional, some prefer single commit)
 
 ```bash
-# Run tests to confirm they fail
-go test ./... -run TestNewFeature
+# On PR branch: write tests, commit
+git commit -m "test(scope): add tests for feature (red phase)"
+
+# Create temp branch to verify tests fail
+git checkout -b test-wip main
+git cherry-pick fix/123-something
+go build ./... && go test ./... -run TestNewFeature
 # Expected: FAIL
 
-# Optional: commit failing tests separately
-git commit -m "test(scope): add tests for feature (red phase)"
+# Back to PR branch
+git checkout fix/123-something
+git branch -D test-wip
 ```
 
 ### Step 2: Implement to Make Tests Pass
 
 Write the minimum code needed to make tests pass:
 
-1. **Implement the fix/feature**
-2. **Run tests - verify they PASS**
+1. **Implement the fix/feature** (on PR branch)
+2. **Run tests - verify they PASS** (on temp test branch)
 3. **Commit the implementation**
 
 ```bash
-# Run tests to confirm they pass
-go test ./...
+# On PR branch: implement, commit
+git commit -m "fix(scope): implement feature (#123)"
+
+# Create temp branch to verify tests pass
+git checkout -b test-wip main
+git cherry-pick fix/123-something~1..fix/123-something  # cherry-pick range
+go build ./... && go test ./...
 # Expected: PASS
 
-git commit -m "fix(scope): implement feature (#123)"
+# Back to PR branch
+git checkout fix/123-something
+git branch -D test-wip
 ```
 
 ### Guidelines
