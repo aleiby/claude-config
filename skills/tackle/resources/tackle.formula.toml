@@ -14,7 +14,6 @@ Context is read from the bonded bead:
 """
 formula = "tackle"
 type = "workflow"
-phase = "liquid"  # Note: gt sling --on ignores this (always creates wisps). Squash in reflect phase preserves audit trail.
 version = 7
 
 [[steps]]
