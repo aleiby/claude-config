@@ -663,7 +663,10 @@ if [ -z "$PR_NUMBER" ]; then
   git push -u origin $BRANCH
   gh pr create --repo $ORG_REPO --draft \
     --head "$FORK_OWNER:$BRANCH" \
-    --title "<title>" --body "<body>"
+    --title "<title>" --body "<body>
+
+---
+🤖 [Tackled](https://github.com/aleiby/claude-config/tree/master/skills/tackle) with [Claude Code](https://claude.com/claude-code)"
   PR_URL=$(gh pr view --repo $ORG_REPO --json url --jq '.url')
   PR_NUMBER=$(gh pr view --repo $ORG_REPO --json number --jq '.number')
   IS_DRAFT=true
