@@ -350,8 +350,8 @@ If no pending PRs, sub-agent returns `checked_count: 0` - report explicitly.
 
 **Gather inputs for sub-agent:**
 ```bash
-# Get tracked repos from cache (requires yq: https://github.com/mikefarah/yq)
-TRACKED_REPOS=$(yq -o=json '.tackle.tracked_repos // []' .beads/config.yaml 2>/dev/null)
+# Get tracked repos from config (stored via: bd config set tackle.tracked_repos '["org/repo1","org/repo2"]')
+TRACKED_REPOS=$(bd config get tackle.tracked_repos 2>/dev/null || echo '[]')
 # Falls back to just ORG_REPO if no cache
 [ "$TRACKED_REPOS" = "[]" ] || [ -z "$TRACKED_REPOS" ] && TRACKED_REPOS="[\"$ORG_REPO\"]"
 

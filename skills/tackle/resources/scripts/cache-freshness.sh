@@ -10,7 +10,7 @@
 #   CACHE_BEAD  - The cache bead ID (or empty if not found)
 #   CACHE_FRESH - "true" if cache is less than 24 hours old, "false" otherwise
 #
-# Dependencies: yq, bd, jq
+# Dependencies: bd, jq
 #
 # Notes:
 #   - Cross-platform date parsing (handles GNU date on Linux, BSD date on macOS)
@@ -27,8 +27,8 @@ if [ -z "${ORG_REPO:-}" ]; then
   exit 1
 fi
 
-# Fast path: Check config for cached bead ID (requires yq)
-CACHE_BEAD=$(yq ".tackle.cache_beads[\"$ORG_REPO\"]" .beads/config.yaml 2>/dev/null || echo "")
+# Fast path: Check config for cached bead ID
+CACHE_BEAD=$(bd config get "tackle.cache_bead.$ORG_REPO" 2>/dev/null || echo "")
 
 # Fallback: Label search if not in config
 if [ -z "$CACHE_BEAD" ] || [ "$CACHE_BEAD" = "null" ]; then

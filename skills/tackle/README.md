@@ -14,13 +14,8 @@ A Claude Code skill for contributing to open source projects with mandatory huma
 **Required:**
 - [gh](https://cli.github.com/) - GitHub CLI for API access
 - [jq](https://jqlang.github.io/jq/) - JSON processing
-
-**Optional (graceful fallback without):**
-- [yq](https://github.com/mikefarah/yq) - YAML parsing for `.beads/config.yaml`
-  - Without yq: only the primary upstream repo is checked for existing work
-  - With yq: additional tracked repos from config are also searched
-  - Install: `brew install yq` (macOS) or `sudo apt install yq` (Debian/Ubuntu)
-  - Commands using yq fail silently and fall back to defaults
+- [gt](https://github.com/steveyegge/gastown) - Gas Town CLI
+- [bd](https://github.com/steveyegge/beads) - Issue tracking
 
 ## What It Does
 
