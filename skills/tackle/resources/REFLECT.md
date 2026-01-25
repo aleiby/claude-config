@@ -106,12 +106,12 @@ Subjective issues that need validation:
 
 ## Recording Issues
 
-When there are issues, record them in the **molecule notes** (not step close_reason). This ensures friction data survives squashing and is queryable for pattern detection.
+When there are issues, record them in the **issue notes** (not molecule or step). This ensures friction data survives molecule GC and is queryable for pattern detection.
 
 ```bash
-# Add friction to molecule notes (MOL_ID from context-recovery.sh)
-bd update "$MOL_ID" --notes "$(cat <<'EOF'
-FRICTION:
+# Add friction to ISSUE notes (ISSUE_ID from context-recovery.sh)
+bd update "$ISSUE_ID" --append-notes "$(cat <<'EOF'
+TACKLE FRICTION:
 - ERROR: Used --silent flag (doesn't exist, should be -q)
 - FRICTION: Molecule attachment instructions unclear
 
@@ -121,11 +121,11 @@ CLEAN:
 EOF
 )"
 
-# Add friction label for querying
-bd update "$MOL_ID" --add-label "tackle:friction"
+# Add friction label to ISSUE for querying
+bd update "$ISSUE_ID" --add-label "tackle:friction"
 ```
 
-This becomes queryable history for pattern detection. The friction notes are also included in the squash summary (see Completing Reflect).
+This becomes queryable history for pattern detection. Issues are permanent; molecules are ephemeral wisps that may be GC'd.
 
 ## Proposing Skill Improvements
 

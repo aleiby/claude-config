@@ -4,11 +4,13 @@
 # Usage: source complete-tackle.sh
 #
 # Inputs (optional):
+#   ISSUE_ID      - The issue bead ID (will be recovered from hook if not set)
 #   MOL_ID        - The molecule ID to close (will be recovered from hook if not set)
 #   SQUASH_SUMMARY - Summary for the digest (default: "Tackle complete")
 #
 # Side effects:
 #   - Squashes the molecule (creates digest for audit trail)
+#   - Stores digest ID in issue notes for future reference
 #   - Closes the root molecule
 #   - Verifies molecule is closed
 #   - Unhooks the issue (frees hook for other work)
@@ -22,9 +24,13 @@
 
 set -euo pipefail
 
-# Get MOL_ID from hook if not already set
+# Get IDs from hook if not already set
+HOOK_JSON=$(gt hook --json 2>/dev/null || echo '{}')
+if [ -z "${ISSUE_ID:-}" ]; then
+  ISSUE_ID=$(echo "$HOOK_JSON" | jq -r '.bead_id // empty')
+fi
 if [ -z "${MOL_ID:-}" ]; then
-  MOL_ID=$(gt hook --json 2>/dev/null | jq -r '.attached_molecule // empty')
+  MOL_ID=$(echo "$HOOK_JSON" | jq -r '.attached_molecule // empty')
 fi
 
 if [ -z "$MOL_ID" ]; then
@@ -35,7 +41,13 @@ fi
 # Squash molecule to create digest (preserves audit trail since wisps don't sync)
 # The summary captures PR outcome for future learning
 SQUASH_SUMMARY="${SQUASH_SUMMARY:-Tackle complete}"
-bd mol squash "$MOL_ID" --summary "$SQUASH_SUMMARY" 2>/dev/null || echo "Note: squash skipped (may already be closed or not supported)"
+DIGEST_OUTPUT=$(bd mol squash "$MOL_ID" --summary "$SQUASH_SUMMARY" --json 2>/dev/null || echo "{}")
+DIGEST_ID=$(echo "$DIGEST_OUTPUT" | jq -r '.digest_id // empty' 2>/dev/null || echo "")
+
+# Store digest ID in issue notes for future reference
+if [ -n "$DIGEST_ID" ] && [ -n "${ISSUE_ID:-}" ]; then
+  bd update "$ISSUE_ID" --append-notes "digest: $DIGEST_ID" 2>/dev/null || true
+fi
 
 # Close the root molecule
 bd close "$MOL_ID" --reason "Tackle complete - PR submitted"
