@@ -43,7 +43,7 @@ If you encounter:
    - What step you were on
    - What you tried to do
    - The exact error or unexpected behavior
-   - Relevant state (`gt hook --json`, `bd --no-daemon mol current`)
+   - Relevant state (`gt hook --json`)
 3. **Wait for guidance** - The mayor will investigate and fix the skill
 
 ```bash
@@ -66,12 +66,6 @@ source "$SKILL_DIR/resources/scripts/report-problem.sh"
 | reflect | REFLECT.md | `source complete-tackle.sh` (squash + unhook) |
 
 Manual `bd update` commands will miss side effects like `--status=deferred`. Always use the provided scripts.
-
-**Use `--no-daemon` for molecule queries.** Commands that query molecule state require direct database access:
-- `bd --no-daemon mol current` - Show current molecule state
-- `bd --no-daemon ready --mol <id>` - Find ready steps in molecule
-
-Without `--no-daemon`, these commands fail with "requires direct database access" error.
 
 **Note:** Sub-agent resources (PROJECT-RESEARCH.md, etc.) are loaded conditionally by sub-agents - don't load those in the main agent.
 
@@ -111,20 +105,9 @@ Recover all variables needed for tackle execution:
 source "$SKILL_DIR/resources/scripts/context-recovery.sh"
 ```
 
-This sets: `ISSUE_ID`, `MOL_ID`, `ORG_REPO`
+This sets: `ISSUE_ID`, `MOL_ID`, `ORG_REPO`, `STEP_ID`, `STEP_TITLE`
 
 **Errors**: Exits 1 if upstream not found in issue notes or git remotes.
-
-### Claiming Current Step
-
-If `bd mol current` shows a step but you're not the assignee:
-```bash
-source "$SKILL_DIR/resources/scripts/claim-step.sh"
-```
-
-This sets: `STEP_ID`
-
-**Requires**: `MOL_ID` must be set.
 
 ### On Errors
 
@@ -136,7 +119,10 @@ This sets: `STEP_ID`
 
 Resources are in the `resources/` folder relative to this SKILL.md file.
 
-Check current step with `bd --no-daemon mol current`, then use this lookup:
+After running context-recovery.sh, use `STEP_TITLE` to determine which resource to load.
+Parse phase from title like `[PLAN] Run /tackle --resume plan`.
+
+Use this lookup:
 
 | Step | Resource |
 |------|----------|
@@ -199,7 +185,7 @@ First, parse what the user wants:
 |-------|--------|
 | `/tackle <issue>` | Start or resume tackle for issue |
 | `/tackle --resume` | Continue in-progress tackle after compaction/restart (runs Resumption Protocol) |
-| `/tackle --status` | Show current tackle state via `bd --no-daemon mol current` |
+| `/tackle --status` | Show current tackle state via `gt hook --json` |
 | `/tackle --abort` | Abandon tackle, clean up molecule and branch |
 | `/tackle --refresh` | Force refresh upstream research |
 | `/tackle --help` | Show Quick Reference to user |
@@ -211,15 +197,10 @@ When starting `/tackle <issue>`:
 #### 1. Check for Existing Work
 
 ```bash
-gt hook
+gt hook --json | jq '{bead: .bead_id, molecule: .attached_molecule, progress: .progress}'
 ```
 
-If work is hooked with an attached molecule, resume from current step:
-```bash
-bd --no-daemon mol current
-bd ready
-```
-
+If work is hooked with an attached molecule, resume from current step.
 If no molecule attached, continue with fresh tackle setup below.
 
 #### 2. Resolve Issue
@@ -469,7 +450,7 @@ This sets: `MOL_ID`, `FIRST_STEP`
 
 ### Phase Execution
 
-Based on current step (from `bd --no-daemon mol current`), take the appropriate action.
+Based on current step (from `gt hook --json`), take the appropriate action.
 See Resource Loading table above for which resource file to load.
 
 | Step ID | Action |
@@ -488,16 +469,9 @@ See Resource Loading table above for which resource file to load.
 
 After completing work for a step:
 ```bash
-source "$SKILL_DIR/resources/scripts/complete-step.sh"
+bd close "$STEP_ID" --continue
+NEXT_STEP=$(gt hook --json | jq -r '.progress.ready_steps[0] // empty')
 ```
-
-This sets: `NEXT_STEP`
-
-**Requires**: `STEP_ID` and `MOL_ID` must be set.
-
-This marks the step complete and advances to the next step. The assignee update is required because `bd mol current` filters by assignee - without it, the molecule becomes invisible.
-
-**Note:** Steps are linked to molecules via parent-child deps. The script uses `gt hook --json` as primary, falls back to `bd --no-daemon ready --mol` (which respects blocking deps), and uses `bd dep list --type=parent-child` as last resort.
 
 **Continue until reflect is complete and root molecule is closed.** Tackle is not done until then.
 
@@ -586,7 +560,6 @@ Options:
 ### On Approve
 
 ```bash
-# STEP_ID from bd --no-daemon mol current
 bd close "$STEP_ID" --continue
 ```
 
@@ -676,12 +649,15 @@ if [ -z "$PR_NUMBER" ]; then
   PR_URL=$(gh pr view --repo $ORG_REPO --json url --jq '.url')
   PR_NUMBER=$(gh pr view --repo $ORG_REPO --json number --jq '.number')
   IS_DRAFT=true
+
+  # Store PR_NUMBER in issue notes for recovery after compaction
+  bd update "$ISSUE_ID" --append-notes "pr_number: $PR_NUMBER"
 fi
 ```
 
 This sets: `PR_NUMBER`, `IS_DRAFT`, `PR_URL`, `BRANCH`, `FORK_OWNER`
 
-**Requires**: `ORG_REPO` must be set.
+**Requires**: `ORG_REPO` and `ISSUE_ID` must be set (from set-vars.sh).
 
 GitHub is the source of truth for PR state.
 
@@ -763,14 +739,12 @@ Do NOT close gate-submit. Stay at this gate and iterate:
 **If CI passed** (or failures are pre-existing, or user chooses to submit anyway), store PR info and proceed:
 
 ```bash
-GATE_BEAD=$(bd --no-daemon mol current --json | jq -r '.current_step.id')
-
-bd update "$GATE_BEAD" --notes="pr_number: $PR_NUMBER
+bd update "$STEP_ID" --notes="pr_number: $PR_NUMBER
 pr_url: $PR_URL
 ci_status: passed
 approved_at: $(date -Iseconds)"
 
-bd close "$GATE_BEAD" --reason "Approved - PR #$PR_NUMBER ready for review" --continue
+bd close "$STEP_ID" --reason "Approved - PR #$PR_NUMBER ready for review" --continue
 ```
 
 Proceed to submit phase (marks the draft PR as ready for review).
@@ -845,7 +819,7 @@ If any issues found: load REFLECT.md for recording format and pattern detection.
 After completing the reflect assessment:
 
 ```bash
-# 1. Close the reflect step (STEP_ID from bd --no-daemon mol current)
+# 1. Close the reflect step
 bd close "$STEP_ID" --reason "Clean run - no issues"  # or "See molecule notes"
 
 # 2. Set squash summary (captures PR outcome for audit trail)
@@ -874,7 +848,7 @@ Use after compaction, handoff, or session restart to continue an in-progress tac
 
 **What it does:**
 1. Run the **Resumption Protocol** (see top of this file)
-2. Load resource for the specified step (or auto-detect from `bd mol current`)
+2. Load resource for the specified step (or auto-detect from `gt hook`)
 3. Continue execution
 
 See **Resource Loading** section above for step names and their resources.
@@ -926,7 +900,7 @@ When handing off mid-tackle, include this context for the next session:
 ## Tackle Status: <issue-id>
 
 Molecule: <molecule-id>
-Current step: <step-name> (from bd --no-daemon mol current)
+Current step: <step-name> (from gt hook)
 Branch: <branch-name>
 
 ### Completed

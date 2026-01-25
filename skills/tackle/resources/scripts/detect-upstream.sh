@@ -17,15 +17,16 @@
 set -euo pipefail
 
 # Detect remote (prefer upstream, then fork-source, then origin)
+# Note: grep returns exit 1 on no match, so use || true to avoid pipefail exit
 UPSTREAM_REMOTE="upstream"
-UPSTREAM_URL=$(git remote -v | grep -E '^upstream\s' | head -1 | awk '{print $2}')
+UPSTREAM_URL=$(git remote -v | grep -E '^upstream\s' | head -1 | awk '{print $2}' || true)
 if [ -z "$UPSTREAM_URL" ]; then
   UPSTREAM_REMOTE="fork-source"
-  UPSTREAM_URL=$(git remote -v | grep -E '^fork-source\s' | head -1 | awk '{print $2}')
+  UPSTREAM_URL=$(git remote -v | grep -E '^fork-source\s' | head -1 | awk '{print $2}' || true)
 fi
 if [ -z "$UPSTREAM_URL" ]; then
   UPSTREAM_REMOTE="origin"
-  UPSTREAM_URL=$(git remote -v | grep -E '^origin\s' | head -1 | awk '{print $2}')
+  UPSTREAM_URL=$(git remote -v | grep -E '^origin\s' | head -1 | awk '{print $2}' || true)
 fi
 
 # Error if no remote found

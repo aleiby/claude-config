@@ -4,13 +4,10 @@ Verify implementation before submission.
 
 ## Setup
 
-Use upstream and default branch. If resuming after session restart:
+If resuming after session restart:
 ```bash
-# Recover context (sets ISSUE_ID, MOL_ID, ORG_REPO)
+# Recover all context (sets ISSUE_ID, MOL_ID, ORG_REPO, DEFAULT_BRANCH, UPSTREAM_REF, UPSTREAM_REMOTE)
 source "$SKILL_DIR/resources/scripts/context-recovery.sh"
-
-# Get upstream details (sets UPSTREAM_REMOTE, DEFAULT_BRANCH, UPSTREAM_REF)
-source "$SKILL_DIR/resources/scripts/detect-upstream.sh"
 ```
 
 ## Validation Checklist

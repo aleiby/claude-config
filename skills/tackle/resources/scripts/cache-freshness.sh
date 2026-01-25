@@ -18,9 +18,12 @@
 
 set -euo pipefail
 
-# Verify ORG_REPO is set
+# ORG_REPO must be provided by caller
+# Note: This script runs BEFORE sling, so set-vars.sh cannot be used
+# Caller should run detect-upstream.sh in the same shell invocation
 if [ -z "${ORG_REPO:-}" ]; then
   echo "ERROR: ORG_REPO must be set before sourcing cache-freshness.sh"
+  echo "Hint: source detect-upstream.sh && source cache-freshness.sh"
   exit 1
 fi
 

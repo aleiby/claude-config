@@ -20,10 +20,10 @@
 
 set -euo pipefail
 
-# Verify ORG_REPO is set
+# Auto-load tackle context if needed
 if [ -z "${ORG_REPO:-}" ]; then
-  echo "ERROR: ORG_REPO must be set before sourcing pr-check-idempotent.sh"
-  exit 1
+  SCRIPT_DIR="${SKILL_DIR:-$HOME/.claude/skills/tackle}/resources/scripts"
+  source "$SCRIPT_DIR/set-vars.sh"
 fi
 
 # Get current branch

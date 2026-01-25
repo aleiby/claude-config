@@ -19,18 +19,16 @@
 
 set -euo pipefail
 
-# Verify required variables are set
-if [ -z "${ISSUE_ID:-}" ]; then
-  echo "ERROR: ISSUE_ID must be set before sourcing record-pr-stats.sh"
-  exit 1
-fi
+# PR_URL must be provided by caller (workflow-specific)
 if [ -z "${PR_URL:-}" ]; then
   echo "ERROR: PR_URL must be set before sourcing record-pr-stats.sh"
   exit 1
 fi
-if [ -z "${UPSTREAM_REF:-}" ]; then
-  echo "ERROR: UPSTREAM_REF must be set before sourcing record-pr-stats.sh"
-  exit 1
+
+# Auto-load tackle context if needed
+if [ -z "${ISSUE_ID:-}" ] || [ -z "${UPSTREAM_REF:-}" ]; then
+  SCRIPT_DIR="${SKILL_DIR:-$HOME/.claude/skills/tackle}/resources/scripts"
+  source "$SCRIPT_DIR/set-vars.sh"
 fi
 
 # Count changed files and lines

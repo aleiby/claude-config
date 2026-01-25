@@ -16,13 +16,16 @@
 
 set -euo pipefail
 
-# Verify required variables are set
-if [ -z "${PR_NUMBER:-}" ]; then
-  echo "ERROR: PR_NUMBER must be set before sourcing verify-pr-ready.sh"
-  exit 1
+# Auto-load tackle context if needed (includes PR_NUMBER after gate-submit)
+if [ -z "${ORG_REPO:-}" ] || [ -z "${PR_NUMBER:-}" ]; then
+  SCRIPT_DIR="${SKILL_DIR:-$HOME/.claude/skills/tackle}/resources/scripts"
+  source "$SCRIPT_DIR/set-vars.sh"
 fi
-if [ -z "${ORG_REPO:-}" ]; then
-  echo "ERROR: ORG_REPO must be set before sourcing verify-pr-ready.sh"
+
+# PR_NUMBER is required (should be in notes after gate-submit)
+if [ -z "${PR_NUMBER:-}" ]; then
+  echo "ERROR: PR_NUMBER not found. Has gate-submit completed?"
+  echo "Hint: PR_NUMBER should be in issue notes after PR creation"
   exit 1
 fi
 

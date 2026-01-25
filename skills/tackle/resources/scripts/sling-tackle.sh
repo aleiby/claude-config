@@ -4,8 +4,11 @@
 # Usage: source sling-tackle.sh
 #
 # Inputs (required):
-#   ISSUE_ID  - The issue bead ID to tackle
-#   ORG_REPO  - The upstream org/repo (e.g., "steveyegge/beads")
+#   ISSUE_ID        - The issue bead ID to tackle
+#   ORG_REPO        - The upstream org/repo (e.g., "steveyegge/beads")
+#   DEFAULT_BRANCH  - The default branch (e.g., "main")
+#   UPSTREAM_REF    - The full ref (e.g., "upstream/main")
+#   UPSTREAM_REMOTE - The git remote name (e.g., "upstream")
 #
 # Outputs (exported variables):
 #   MOL_ID     - The created molecule ID
@@ -33,10 +36,26 @@ if [ -z "${ORG_REPO:-}" ]; then
   echo "ERROR: ORG_REPO must be set before sourcing sling-tackle.sh"
   exit 1
 fi
+if [ -z "${DEFAULT_BRANCH:-}" ]; then
+  echo "ERROR: DEFAULT_BRANCH must be set before sourcing sling-tackle.sh"
+  exit 1
+fi
+if [ -z "${UPSTREAM_REF:-}" ]; then
+  echo "ERROR: UPSTREAM_REF must be set before sourcing sling-tackle.sh"
+  exit 1
+fi
+if [ -z "${UPSTREAM_REMOTE:-}" ]; then
+  echo "ERROR: UPSTREAM_REMOTE must be set before sourcing sling-tackle.sh"
+  exit 1
+fi
 
 # Store upstream context in the issue bead (bead carries its own context)
 # This is needed because gt sling --on doesn't support --var
-bd update "$ISSUE_ID" --notes "upstream: $ORG_REPO"
+# Other scripts use set-vars.sh to read these back
+bd update "$ISSUE_ID" --notes "upstream: $ORG_REPO
+default_branch: $DEFAULT_BRANCH
+upstream_ref: $UPSTREAM_REF
+upstream_remote: $UPSTREAM_REMOTE"
 
 # Sling the issue with tackle formula
 # This creates the molecule wisp, bonds it to the issue, hooks issue to self,
@@ -59,7 +78,7 @@ echo "Tackle started: $MOL_ID"
 # Add formula label for pattern detection in reflect phase
 bd update "$MOL_ID" --add-label "formula:tackle"
 
-# CRITICAL: Claim first step with assignee so bd mol current works
+# Claim first step with assignee for status tracking
 # Use gt hook data directly (more reliable than bd ready --parent)
 FIRST_STEP=$(echo "$HOOK_JSON" | jq -r '.progress.ready_steps[0] // empty')
 if [ -n "$FIRST_STEP" ]; then

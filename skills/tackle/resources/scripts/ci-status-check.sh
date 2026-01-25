@@ -20,17 +20,16 @@
 
 set -euo pipefail
 
-# Verify required variables are set
+# Auto-load tackle context if needed (includes PR_NUMBER after gate-submit)
+if [ -z "${ORG_REPO:-}" ] || [ -z "${DEFAULT_BRANCH:-}" ] || [ -z "${PR_NUMBER:-}" ]; then
+  SCRIPT_DIR="${SKILL_DIR:-$HOME/.claude/skills/tackle}/resources/scripts"
+  source "$SCRIPT_DIR/set-vars.sh"
+fi
+
+# PR_NUMBER is required (should be in notes after gate-submit)
 if [ -z "${PR_NUMBER:-}" ]; then
-  echo "ERROR: PR_NUMBER must be set before sourcing ci-status-check.sh"
-  exit 1
-fi
-if [ -z "${ORG_REPO:-}" ]; then
-  echo "ERROR: ORG_REPO must be set before sourcing ci-status-check.sh"
-  exit 1
-fi
-if [ -z "${DEFAULT_BRANCH:-}" ]; then
-  echo "ERROR: DEFAULT_BRANCH must be set before sourcing ci-status-check.sh"
+  echo "ERROR: PR_NUMBER not found. Has gate-submit completed?"
+  echo "Hint: PR_NUMBER should be in issue notes after PR creation"
   exit 1
 fi
 

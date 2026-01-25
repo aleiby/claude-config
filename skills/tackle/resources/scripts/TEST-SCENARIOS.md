@@ -6,20 +6,19 @@ This document defines test cases for validating the tackle bash scripts.
 
 | Script | Purpose <br> @ Called From | → Inputs <br> ← Outputs |
 |--------|----------------------|------------------|
-| **cache-freshness.sh** | Check cache validity (24h threshold)<br>@ *Step 3 (Cache Check)* | → `ORG_REPO`<br>← `CACHE_BEAD`, `CACHE_FRESH` |
-| **ci-status-check.sh** | Poll CI, detect pre-existing failures<br>@ *gate-submit* | → `PR_NUMBER`, `ORG_REPO`, `DEFAULT_BRANCH`<br>← `FAILED`, `PRE_EXISTING`, `PENDING` |
-| **claim-step.sh** | Claim ownership of current molecule step<br>@ *Step 1 (Claim Step)* | → `MOL_ID`<br>← `STEP_ID` |
-| **complete-step.sh** | Close step, claim next with fallback<br>@ *After each step* | → `STEP_ID`, `MOL_ID`<br>← `NEXT_STEP` |
+| **cache-freshness.sh** | Check cache validity (24h threshold)<br>@ *Step 3 (Cache Check)* | → `ORG_REPO` (caller must provide)<br>← `CACHE_BEAD`, `CACHE_FRESH` |
+| **ci-status-check.sh** | Poll CI, detect pre-existing failures<br>@ *gate-submit* | → (auto-loads via set-vars.sh incl PR_NUMBER)<br>← `FAILED`, `PRE_EXISTING`, `PENDING` |
 | **complete-tackle.sh** | Close root molecule and unhook after completion<br>@ *Reflect phase (after step close)* | → `MOL_ID` (optional, recovered from hook)<br>← (closes molecule, unhooks) |
-| **context-recovery.sh** | Recover IDs after session restart<br>@ *Step 10 (Context Recovery)* | → (none - reads gt hook)<br>← `ISSUE_ID`, `MOL_ID`, `ORG_REPO` |
+| **context-recovery.sh** | Recover IDs after session restart<br>@ *Resumption Protocol* | → (none - uses set-vars.sh)<br>← `ISSUE_ID`, `MOL_ID`, `ORG_REPO`, `DEFAULT_BRANCH`, `UPSTREAM_REF`, `UPSTREAM_REMOTE`, `STEP_ID`, `STEP_TITLE` |
 | **detect-upstream.sh** | Detect git remote, extract org/repo<br>@ *Step 2 (Research)* | → (none - reads git config)<br>← `UPSTREAM_REMOTE`, `UPSTREAM_URL`, `ORG_REPO`, `DEFAULT_BRANCH`, `UPSTREAM_REF` |
 | **env-check.sh** | Validate required env vars (BD_ACTOR, SKILL_DIR)<br>@ *Resumption Protocol* | → (reads env)<br>← (exits 1 if missing) |
-| **pr-check-idempotent.sh** | Check if draft PR already exists<br>@ *gate-submit* | → `ORG_REPO`<br>← `PR_NUMBER`, `IS_DRAFT`, `PR_URL`, `BRANCH`, `FORK_OWNER` |
+| **pr-check-idempotent.sh** | Check if draft PR already exists<br>@ *gate-submit* | → (auto-loads via set-vars.sh)<br>← `PR_NUMBER`, `IS_DRAFT`, `PR_URL`, `BRANCH`, `FORK_OWNER` |
 | **query-friction.sh** | Query molecules for friction patterns<br>@ *Reflect phase* | → (none)<br>← JSON output |
-| **record-pr-stats.sh** | Calculate diff stats, update issue<br>@ *Submit phase (Record)* | → `ISSUE_ID`, `PR_URL`, `UPSTREAM_REF`<br>← `FILES_CHANGED`, `LINES_CHANGED` |
+| **record-pr-stats.sh** | Calculate diff stats, update issue<br>@ *Submit phase (Record)* | → `PR_URL` (auto-loads others via set-vars.sh)<br>← `FILES_CHANGED`, `LINES_CHANGED` |
 | **report-problem.sh** | Report tackle problem to mayor via mail<br>@ *When Things Go Wrong* | → `SKILL_DIR`, `STEP`, `ERROR_DESC`, `ERROR_MSG` (opt)<br>← (sends mail) |
-| **sling-tackle.sh** | Sling formula, fix step parenting, claim first step<br>@ *Step 9 (Sling)* | → `ISSUE_ID`, `ORG_REPO`, `BD_ACTOR`<br>← `MOL_ID`, `FIRST_STEP` |
-| **verify-pr-ready.sh** | Verify PR is no longer draft<br>@ *Submit phase* | → `PR_NUMBER`, `ORG_REPO`<br>← `IS_DRAFT`, `PR_STATE`, `PR_URL` |
+| **set-vars.sh** | Load tackle context from bead notes<br>@ *Called by other scripts* | → (none - reads gt hook + bead notes)<br>← `ISSUE_ID`, `MOL_ID`, `ORG_REPO`, `DEFAULT_BRANCH`, `UPSTREAM_REF`, `UPSTREAM_REMOTE`, `PR_NUMBER` (optional) |
+| **sling-tackle.sh** | Sling formula, store context, claim first step<br>@ *Step 9 (Sling)* | → `ISSUE_ID`, `ORG_REPO`, `DEFAULT_BRANCH`, `UPSTREAM_REF`, `UPSTREAM_REMOTE`, `BD_ACTOR`<br>← `MOL_ID`, `FIRST_STEP` |
+| **verify-pr-ready.sh** | Verify PR is no longer draft<br>@ *Submit phase* | → (auto-loads via set-vars.sh incl PR_NUMBER)<br>← `IS_DRAFT`, `PR_STATE`, `PR_URL` |
 
 ---
 
@@ -97,16 +96,6 @@ source "$SCRIPT_DIR/cache-freshness.sh" 2>/dev/null || true
   && test_pass "No cache exists" || test_fail "No cache exists" "CACHE_FRESH=$CACHE_FRESH"
 
 echo ""
-echo "=== claim-step.sh ==="
-
-# Test 6: No hook (graceful empty)
-MOL_ID="test-mol-123"
-unset STEP_ID
-source "$SCRIPT_DIR/claim-step.sh" 2>/dev/null || true
-[ -z "$STEP_ID" ] \
-  && test_pass "No hook (empty STEP_ID)" || test_fail "No hook" "STEP_ID=$STEP_ID"
-
-echo ""
 echo "=== context-recovery.sh ==="
 
 # Test 7: No hook/remote error (remove all remotes so fallback also fails)
@@ -132,19 +121,6 @@ unset PR_NUMBER BRANCH FORK_OWNER
 source "$SCRIPT_DIR/pr-check-idempotent.sh" 2>/dev/null || true
 [ -z "$PR_NUMBER" ] && [ "$BRANCH" = "test-branch" ] && [ "$FORK_OWNER" = "aleiby" ] \
   && test_pass "No existing PR" || test_fail "No existing PR" "FORK_OWNER=$FORK_OWNER"
-
-echo ""
-echo "=== complete-step.sh ==="
-
-# Test 9: Invalid context (expected failure) - must export vars for bash subshell
-export STEP_ID="test-step" MOL_ID="test-mol"
-COMPLETE_OUT=$(bash "$SCRIPT_DIR/complete-step.sh" 2>&1 || true)
-if echo "$COMPLETE_OUT" | grep -qE "(resolving ID|operation failed|no issue found|no beads database)"; then
-  test_pass "Invalid context error"
-else
-  test_fail "Invalid context error" "Got: $COMPLETE_OUT"
-fi
-unset STEP_ID MOL_ID
 
 echo ""
 echo "=== ci-status-check.sh (using steveyegge/gastown) ==="
@@ -290,7 +266,6 @@ fi
 
 echo ""
 echo "=== TESTS REQUIRING ACTIVE MOLECULE (not run) ==="
-echo "  - claim-step.sh / complete-step.sh with active molecule"
 echo "  - complete-tackle.sh with active molecule (close + unhook)"
 echo "  - report-problem.sh full send (needs mail infrastructure)"
 ```
@@ -358,23 +333,21 @@ source ~/.claude/skills/tackle/resources/scripts/cache-freshness.sh
 
 ---
 
-### claim-step.sh
+### set-vars.sh
 
-#### Test 1: No active hook
+#### Test 1: No hook (error case)
 ```bash
-MOL_ID="test-mol-123"
-source ~/.claude/skills/tackle/resources/scripts/claim-step.sh
-echo "STEP_ID=$STEP_ID"
-# Expected: STEP_ID= (empty, no error)
+source ~/.claude/skills/tackle/resources/scripts/set-vars.sh
+# Expected: Exit 1 with "ERROR: No issue on hook"
 ```
 
-#### Test 2: With active molecule (requires Gas Town)
+#### Test 2: With active tackle (requires Gas Town)
 ```bash
-# Must have work on hook with attached molecule
-MOL_ID=$(gt hook --json | jq -r '.attached_molecule')
-source ~/.claude/skills/tackle/resources/scripts/claim-step.sh
-echo "STEP_ID=$STEP_ID"
-# Expected: STEP_ID=gt-wisp-xxx (first ready step)
+# Must have tackle in progress (after sling)
+source ~/.claude/skills/tackle/resources/scripts/set-vars.sh
+echo "ISSUE_ID=$ISSUE_ID MOL_ID=$MOL_ID ORG_REPO=$ORG_REPO"
+echo "DEFAULT_BRANCH=$DEFAULT_BRANCH UPSTREAM_REF=$UPSTREAM_REF UPSTREAM_REMOTE=$UPSTREAM_REMOTE"
+# Expected: All six variables set from bead notes
 ```
 
 ---
@@ -384,15 +357,17 @@ echo "STEP_ID=$STEP_ID"
 #### Test 1: No hook (error case)
 ```bash
 source ~/.claude/skills/tackle/resources/scripts/context-recovery.sh
-# Expected: Exit 1 with "ERROR: No upstream found in issue notes"
+# Expected: Exit 1 with "ERROR: No issue on hook" (from set-vars.sh)
 ```
 
 #### Test 2: With active tackle (requires Gas Town)
 ```bash
-# Must have tackle in progress
+# Must have tackle in progress (after sling)
 source ~/.claude/skills/tackle/resources/scripts/context-recovery.sh
 echo "ISSUE_ID=$ISSUE_ID MOL_ID=$MOL_ID ORG_REPO=$ORG_REPO"
-# Expected: All three variables set from hook data
+echo "DEFAULT_BRANCH=$DEFAULT_BRANCH UPSTREAM_REF=$UPSTREAM_REF UPSTREAM_REMOTE=$UPSTREAM_REMOTE"
+echo "STEP_ID=$STEP_ID STEP_TITLE=$STEP_TITLE"
+# Expected: All variables set, plus progress JSON output
 ```
 
 ---
@@ -443,26 +418,6 @@ DEFAULT_BRANCH="main"
 source ~/.claude/skills/tackle/resources/scripts/ci-status-check.sh
 echo "FAILED=$FAILED PRE_EXISTING=$PRE_EXISTING"
 # Expected: FAILED=0 PRE_EXISTING=false
-```
-
----
-
-### complete-step.sh
-
-#### Test 1: No beads DB (error case)
-```bash
-STEP_ID="test-step" MOL_ID="test-mol"
-bash ~/.claude/skills/tackle/resources/scripts/complete-step.sh
-# Expected: Exit 1 with "no beads database found"
-```
-
-#### Test 2: With active molecule (requires Gas Town)
-```bash
-STEP_ID=$(bd --no-daemon mol current --json | jq -r '.current_step.id')
-MOL_ID=$(gt hook --json | jq -r '.attached_molecule')
-source ~/.claude/skills/tackle/resources/scripts/complete-step.sh
-echo "NEXT_STEP=$NEXT_STEP"
-# Expected: Current step closed, NEXT_STEP set to next ready step
 ```
 
 ---
@@ -667,35 +622,15 @@ bd --no-daemon ready --mol "$MOL_ID" --json | jq -r '.steps[].issue.id'  # Shoul
 
 ## Known Issues & Bugs Found
 
-### gt hook ready_steps Bug (Found 2026-01-24)
+### gt hook ready_steps Bug (Found 2026-01-24, Fixed 2026-01-24)
 
 **Issue:** `gt hook` incorrectly counts ready steps in molecules.
 
-**Observed behavior:**
-```
-Progress: [░░░░░░░░░░░░░░░░░░░░] 0% (0/9 steps)
-  Done:        0
-  In Progress: 0
-  Ready:       9    ← WRONG
-  Blocked:     0    ← WRONG
-```
+**Status:** ✅ Fixed via PR #901 (cherry-picked to local main)
 
-**Actual state:** Only 1 step was ready; 8 were blocked by inter-step dependencies.
+**Root cause:** `gt hook` counted all child steps as "ready" if the parent molecule dependency was satisfied, without checking blocking dependencies between sibling steps.
 
-**Root cause:** `gt hook` counts all child steps as "ready" if the parent molecule dependency is satisfied, without checking blocking dependencies between sibling steps.
-
-**Dependency chain verified:**
-```
-kfya (PLAN) → jgo2 (GATE) → ccr7 (BRANCH) → kgiv (IMPLEMENT) →
-w5er (VALIDATE) → k2qc (GATE) → he2c (SUBMIT) → qy44 (RECORD) → 6724 (REFLECT)
-```
-
-**Mitigation (2026-01-24):** Scripts updated to use `bd ready --mol` as fallback instead of
-relying solely on `gt hook` or `bd dep list --type=parent-child`:
-- `complete-step.sh` - Fixed in commit 5a98bea9
-- `claim-step.sh` - Fixed to match
-
-**Workaround:** If scripts fail, manually check step dependencies with `bd show <step-id>` before claiming.
+**Fix:** PR #901 updated molecule dependency checking to respect inter-step blocking deps.
 
 ---
 
@@ -749,12 +684,11 @@ Last tested: 2026-01-24
 | cache-freshness.sh | No cache exists | ✅ |
 | cache-freshness.sh | Fresh cache (real bead) | ✅ |
 | cache-freshness.sh | Stale cache (real bead) | ✅ |
-| claim-step.sh | No hook (graceful) | ✅ |
-| claim-step.sh | bd ready --mol fallback | ⚠️ needs test |
-| context-recovery.sh | No hook/remote error | ✅ |
+| set-vars.sh | No hook error | ⏳ |
+| set-vars.sh | Load from bead notes | ⏳ |
+| context-recovery.sh | No hook error (via set-vars.sh) | ⏳ |
+| context-recovery.sh | Full context recovery | ⏳ |
 | pr-check-idempotent.sh | No existing PR | ✅ |
-| complete-step.sh | Invalid context error | ✅ |
-| complete-step.sh | bd ready --mol fallback | ⚠️ needs test |
 | complete-tackle.sh | No MOL_ID error | ✅ |
 | complete-tackle.sh | SQUASH_SUMMARY used | ✅ |
 | ci-status-check.sh | Real PR #893 (pre-existing failures) | ✅ |
@@ -767,6 +701,7 @@ Last tested: 2026-01-24
 | record-pr-stats.sh | Missing ISSUE_ID error | ✅ |
 | report-problem.sh | Missing STEP error | ✅ |
 | sling-tackle.sh | Steps findable (gt hook + bd ready --mol) | ✅ |
+| sling-tackle.sh | Stores context in bead notes | ⏳ |
 | env-check.sh | Missing BD_ACTOR error | ✅ |
 | env-check.sh | Missing SKILL_DIR error | ✅ |
 | env-check.sh | All env vars present | ✅ |

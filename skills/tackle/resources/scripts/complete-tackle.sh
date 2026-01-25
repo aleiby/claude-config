@@ -52,9 +52,9 @@ fi
 # Close the root molecule
 bd close "$MOL_ID" --reason "Tackle complete - PR submitted"
 
-# Verify molecule closed
+# Verify molecule closed and hook cleared
 echo "Verifying molecule closure..."
-bd --no-daemon mol current   # Should show "No molecules in progress"
+gt hook  # Should show "Nothing on hook"
 
 # Unhook the issue (frees your hook for other work)
 # The issue stays in "deferred" status until PR outcome - that's correct.

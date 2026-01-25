@@ -31,9 +31,8 @@ if [ -z "${ERROR_DESC:-}" ]; then
   exit 1
 fi
 
-# Capture state
+# Capture state (gt hook has all the info we need)
 HOOK_STATE=$(gt hook --json 2>/dev/null || echo "no hook")
-MOL_STATE=$(bd --no-daemon mol current 2>/dev/null || echo "no molecule")
 
 # Build error context
 ERROR_CONTEXT="- Step: ${STEP}"
