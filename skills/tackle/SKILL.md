@@ -308,7 +308,7 @@ This is a housekeeping gate - check ALL issues with `pr-submitted` label.
 # Build pending issues list
 # Notes contain "PR: https://github.com/org/repo/pull/123" format
 # Extract PR number from the URL path
-PENDING_JSON=$(bd list --label=pr-submitted --json 2>/dev/null | jq '[.[] | {
+PENDING_JSON=$(bd list --label=pr-submitted --limit 0 --json 2>/dev/null | jq '[.[] | {
   id: .id,
   pr_number: ((.notes // "") | capture("pull/(?<n>[0-9]+)")? | .n // null),
   title: .title
