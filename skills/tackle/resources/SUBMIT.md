@@ -174,7 +174,7 @@ To check PR status later:
 bd close <record-step-id> --continue
 ```
 
-Use `bd ready` to find the reflect step.
+Check `gt hook` to see the reflect step is now ready.
 
 ## Error Handling
 
