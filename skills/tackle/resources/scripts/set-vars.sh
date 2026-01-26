@@ -22,12 +22,32 @@
 set -euo pipefail
 
 # Get IDs from hook
-HOOK_JSON=$(gt hook --json 2>/dev/null || echo '{}')
+# Capture both stdout and stderr to diagnose failures
+HOOK_ERR=$(mktemp)
+HOOK_JSON=$(gt hook --json 2>"$HOOK_ERR") || true
+HOOK_ERR_MSG=$(cat "$HOOK_ERR")
+rm -f "$HOOK_ERR"
+
+# Handle gt hook failures
+if [ -z "$HOOK_JSON" ] || [ "$HOOK_JSON" = "{}" ]; then
+  echo "ERROR: No issue on hook. Is this a tackle session?"
+  if [ -n "$HOOK_ERR_MSG" ]; then
+    echo "Details: $HOOK_ERR_MSG"
+  fi
+  echo ""
+  echo "If you switched branches, run: /tackle --resume"
+  echo "To check hook status: gt hook"
+  exit 1
+fi
+
 ISSUE_ID=$(echo "$HOOK_JSON" | jq -r '.bead_id // empty')
 MOL_ID=$(echo "$HOOK_JSON" | jq -r '.attached_molecule // empty')
 
 if [ -z "$ISSUE_ID" ]; then
-  echo "ERROR: No issue on hook. Is this a tackle session?"
+  echo "ERROR: Hook exists but has no bead_id"
+  echo "Hook JSON: $HOOK_JSON"
+  echo ""
+  echo "Try: /tackle --resume"
   exit 1
 fi
 
