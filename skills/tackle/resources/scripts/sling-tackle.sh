@@ -20,8 +20,7 @@
 #   - Claims first step with current actor
 #
 # Note: Steps are linked to molecule via parent-child deps.
-#   Use gt hook --json (primary), bd ready --mol (fallback), or
-#   bd dep list --type=parent-child (last resort) to find ready steps.
+#   Use gt hook --json to find ready steps (see .progress.ready_steps).
 #
 # Errors: Exits 1 with guidance if sling fails or BD_ACTOR not set
 
@@ -79,7 +78,6 @@ echo "Tackle started: $MOL_ID"
 bd update "$MOL_ID" --add-label "formula:tackle"
 
 # Claim first step with assignee for status tracking
-# Use gt hook data directly (more reliable than bd ready --parent)
 FIRST_STEP=$(echo "$HOOK_JSON" | jq -r '.progress.ready_steps[0] // empty')
 if [ -n "$FIRST_STEP" ]; then
   if [ -z "${BD_ACTOR:-}" ]; then
