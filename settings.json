@@ -1,57 +1,5 @@
 {
-  "permissions": {
-    "allow": [
-      "Bash(bd ready)",
-      "Bash(bd list *)",
-      "Bash(bd show *)",
-      "Bash(bd update *)",
-      "Bash(bd close *)",
-      "Bash(bd sync *)",
-      "Bash(bd create *)",
-      "Bash(bd dep *)",
-      "Bash(bd label *)",
-      "Bash(bd blocked)",
-      "Bash(bd doctor *)",
-      "Bash(git status)",
-      "Bash(git add *)",
-      "Bash(git commit *)",
-      "Bash(git push *)",
-      "Bash(git pull *)",
-      "Bash(git merge *)",
-      "Bash(git worktree *)",
-      "Bash(git branch *)",
-      "Bash(git log *)",
-      "Bash(git rev-parse *)",
-      "Bash(git diff *)",
-      "Bash(export BEADS_NO_DAEMON=1 *)"
-    ]
-  },
-  "model": "opus",
-  "hooks": {
-    "PreCompact": [
-      {
-        "matcher": "",
-        "hooks": [
-          {
-            "type": "command",
-            "command": "bd prime"
-          }
-        ]
-      }
-    ],
-    "SessionStart": [
-      {
-        "matcher": "",
-        "hooks": [
-          {
-            "type": "command",
-            "command": "bd prime"
-          }
-        ]
-      }
-    ]
-  },
   "enabledPlugins": {
-    "pr-kit@agentops-marketplace": true
+    "code-simplifier@claude-plugins-official": true
   }
 }
