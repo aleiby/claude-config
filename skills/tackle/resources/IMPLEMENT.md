@@ -242,7 +242,13 @@ git branch -D test-wip
      - With upstream issue: `fix(doctor): correct indentation (#123)`
      - Without upstream issue: `fix(doctor): correct indentation (hq-1234)`
 
-3. **Stay focused**:
+3. **No tracking references in code**:
+   - NEVER add bead IDs, GitHub issue numbers, PR references, or tackle skill references in code comments
+   - No `// Fixed in #123`, `// See hq-1234`, `// PR #456`, `// Tackled`, etc.
+   - Code comments should explain *why*, not reference external tracking systems
+   - Tracking references belong in commit messages and PR descriptions only
+
+4. **Stay focused**:
    - Only change what's needed for the issue
    - Don't fix unrelated things
    - Don't refactor beyond scope
