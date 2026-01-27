@@ -13,6 +13,9 @@
 #   UPSTREAM_REF    - The full ref (e.g., "upstream/main")
 #   UPSTREAM_REMOTE - The git remote name (e.g., "upstream")
 #   PR_NUMBER       - The PR number (optional, only after gate-submit)
+#   BUILD_CMD       - Build command from cached research (e.g., "go build ./...", "npm run build")
+#   TEST_CMD        - Test command from cached research (e.g., "go test ./...", "npm test")
+#   LINT_CMD        - Lint command from cached research (e.g., "go vet ./...", "npm run lint")
 #
 # Notes:
 #   - Variables are stored in bead notes by sling-tackle.sh
@@ -69,5 +72,18 @@ if [ -z "$ORG_REPO" ] || [ -z "$DEFAULT_BRANCH" ] || [ -z "$UPSTREAM_REF" ] || [
   exit 1
 fi
 
-# Export all variables (PR_NUMBER may be empty)
-export ISSUE_ID MOL_ID ORG_REPO DEFAULT_BRANCH UPSTREAM_REF UPSTREAM_REMOTE PR_NUMBER
+# Load build/test/lint commands from cached research bead
+CACHE_BEAD=$(bd list --label=tackle-cache --title-contains="$ORG_REPO" --json 2>/dev/null | jq -r 'sort_by(.updated_at) | reverse | .[0].id // empty' || echo "")
+if [ -n "$CACHE_BEAD" ] && [ "$CACHE_BEAD" != "null" ]; then
+  CACHE_DESC=$(bd show "$CACHE_BEAD" --json 2>/dev/null | jq -r '.[0].description // empty')
+  BUILD_CMD=$(echo "$CACHE_DESC" | grep -A2 'build:' | grep -oP '^\s*command: "\K[^"]+' | head -1 || echo "")
+  TEST_CMD=$(echo "$CACHE_DESC" | grep -A5 'testing:' | grep -oP 'commands: \["\K[^"]+' | head -1 || echo "")
+  LINT_CMD=$(echo "$CACHE_DESC" | grep -A2 'coding_style:' | grep -oP '^\s*linter: "\K[^"]+' | head -1 || echo "")
+else
+  BUILD_CMD=""
+  TEST_CMD=""
+  LINT_CMD=""
+fi
+
+# Export all variables (PR_NUMBER, BUILD_CMD, TEST_CMD, LINT_CMD may be empty)
+export ISSUE_ID MOL_ID ORG_REPO DEFAULT_BRANCH UPSTREAM_REF UPSTREAM_REMOTE PR_NUMBER BUILD_CMD TEST_CMD LINT_CMD

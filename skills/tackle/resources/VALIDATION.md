@@ -4,29 +4,27 @@ Verify implementation before submission.
 
 ## Setup
 
-If resuming after session restart:
 ```bash
-# Recover all context (sets ISSUE_ID, MOL_ID, ORG_REPO, DEFAULT_BRANCH, UPSTREAM_REF, UPSTREAM_REMOTE)
+# Load all context (sets ISSUE_ID, MOL_ID, ORG_REPO, BUILD_CMD, TEST_CMD, LINT_CMD, etc.)
 source "$SKILL_DIR/resources/scripts/context-recovery.sh"
 ```
+
+Run this before any validation step. Each bash invocation is isolated — re-source if needed.
 
 ## Validation Checklist
 
 ### 1. Run Tests
 
-From cached `research.yaml` testing commands:
 ```bash
-# Go projects
-go test ./...
-
-# Node projects
-npm test
-
-# Python projects
-pytest
-
-# Or whatever is specified in research.yaml
+source "$SKILL_DIR/resources/scripts/set-vars.sh"
+$TEST_CMD
 ```
+
+If `$TEST_CMD` is empty, detect from project files:
+- `go.mod` → `go test ./...`
+- `package.json` → `npm test`
+- `Cargo.toml` → `cargo test`
+- `pyproject.toml` → `pytest`
 
 **All tests must pass.** If tests fail:
 1. Fix the failures
@@ -35,32 +33,29 @@ pytest
 
 ### 2. Run Linters
 
-From cached `research.yaml`:
 ```bash
-# Go
-go vet ./...
-gofmt -d .
-
-# JavaScript/TypeScript
-npm run lint
-
-# Python
-ruff check .
+source "$SKILL_DIR/resources/scripts/set-vars.sh"
+$LINT_CMD
 ```
+
+If `$LINT_CMD` is empty, detect from project files:
+- `go.mod` → `go vet ./... && gofmt -d .`
+- `package.json` → `npm run lint`
+- `pyproject.toml` → `ruff check .`
 
 Fix any linter errors before proceeding.
 
 ### 3. Build Check
 
 ```bash
-# Go
-go build ./...
-
-# Node
-npm run build
-
-# Verify no build errors
+source "$SKILL_DIR/resources/scripts/set-vars.sh"
+$BUILD_CMD
 ```
+
+If `$BUILD_CMD` is empty, detect from project files:
+- `go.mod` → `go build ./...`
+- `package.json` → `npm run build`
+- `Cargo.toml` → `cargo build`
 
 ### 4. Isolation Check
 

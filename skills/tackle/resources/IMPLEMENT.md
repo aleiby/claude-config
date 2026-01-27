@@ -35,12 +35,12 @@ For small bug fixes, docs, or focused changes - proceed without upstream issue.
 <What we're fixing/implementing>
 
 ### Files to Modify
-- `path/to/file1.go` - <what changes>
-- `path/to/file2.go` - <what changes>
+- `path/to/file1` - <what changes>
+- `path/to/file2` - <what changes>
 
 ### Tests (TDD)
 <Required for new functionality where project has test infrastructure>
-- Test file: `path/to/file_test.go`
+- Test file: `path/to/file_test`
 - Test cases:
   - <Test case 1 - what it verifies>
   - <Test case 2 - what it verifies>
@@ -159,9 +159,14 @@ Follow test-driven development (TDD) workflow.
 
 ### Testing with Local Patches
 
-If the project requires building (e.g., beads, gastown), test on a temporary branch from `main`:
+If the project requires building, test on a temporary branch from `main`:
+
+`$BUILD_CMD` and `$TEST_CMD` are set by `set-vars.sh` from cached project research.
+If empty, detect from project files (go.mod → go, package.json → npm, Cargo.toml → cargo, pyproject.toml → python).
 
 ```bash
+source "$SKILL_DIR/resources/scripts/set-vars.sh"
+
 # Save current PR branch
 PR_BRANCH=$(git branch --show-current)
 
@@ -170,7 +175,7 @@ git checkout -b test-wip main
 git cherry-pick $PR_BRANCH  # or cherry-pick specific commits
 
 # Build and test
-go build ./... && go test ./...
+$BUILD_CMD && $TEST_CMD
 
 # Return to PR branch, delete temp
 git checkout $PR_BRANCH
@@ -197,7 +202,7 @@ git commit -m "test(scope): add tests for feature (red phase)"
 # Create temp branch to verify tests fail
 git checkout -b test-wip main
 git cherry-pick fix/123-something
-go build ./... && go test ./... -run TestNewFeature
+$BUILD_CMD && $TEST_CMD
 # Expected: FAIL
 
 # Back to PR branch
@@ -220,7 +225,7 @@ git commit -m "fix(scope): implement feature (#123)"
 # Create temp branch to verify tests pass
 git checkout -b test-wip main
 git cherry-pick fix/123-something~1..fix/123-something  # cherry-pick range
-go build ./... && go test ./...
+$BUILD_CMD && $TEST_CMD
 # Expected: PASS
 
 # Back to PR branch
