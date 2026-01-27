@@ -9,12 +9,12 @@ checkpoint that survives session restarts. Gates require explicit approval.
 Usage: gt sling tackle --on <issue-bead>
 
 Context is read from the bonded bead:
-- Issue ID: gt hook --json | jq -r '.bead_id'
+- Issue ID: gt hook --json | jq -r '.pinned_bead.id'
 - Upstream: stored in bead notes before slinging (grep 'upstream:')
 """
 formula = "tackle"
 type = "workflow"
-version = 7
+version = 8
 
 [[steps]]
 id = "plan"

@@ -18,21 +18,28 @@
 
 set -euo pipefail
 
-# ORG_REPO must be provided by caller
+# ORG_REPO must be provided by caller or auto-detected
 # Note: This script runs BEFORE sling, so set-vars.sh cannot be used
-# Caller should run detect-upstream.sh in the same shell invocation
 if [ -z "${ORG_REPO:-}" ]; then
-  echo "ERROR: ORG_REPO must be set before sourcing cache-freshness.sh"
-  echo "Hint: source detect-upstream.sh && source cache-freshness.sh"
-  exit 1
+  # Auto-source detect-upstream.sh if ORG_REPO not set
+  SCRIPT_DIR="${SKILL_DIR:-$HOME/.claude/skills/tackle}/resources/scripts"
+  if [ -f "$SCRIPT_DIR/detect-upstream.sh" ]; then
+    source "$SCRIPT_DIR/detect-upstream.sh"
+  else
+    echo "ERROR: ORG_REPO must be set before sourcing cache-freshness.sh"
+    echo "Hint: source detect-upstream.sh && source cache-freshness.sh"
+    exit 1
+  fi
 fi
 
 # Fast path: Check config for cached bead ID
-CACHE_BEAD=$(bd config get "tackle.cache_bead.$ORG_REPO" 2>/dev/null || echo "")
+# Note: bd config get returns "key (not set)" when missing, not empty
+CACHE_BEAD=$(bd config get "tackle.cache_bead.$ORG_REPO" 2>/dev/null | grep -v "(not set)" || echo "")
 
-# Fallback: Label search if not in config
+# Fallback: Label search if not in config - get most recently updated
 if [ -z "$CACHE_BEAD" ] || [ "$CACHE_BEAD" = "null" ]; then
-  CACHE_BEAD=$(bd list --label=tackle-cache --title-contains="$ORG_REPO" --json 2>/dev/null | jq -r '.[0].id // empty' || echo "")
+  # Sort by updated_at descending to get the freshest cache bead
+  CACHE_BEAD=$(bd list --label=tackle-cache --title-contains="$ORG_REPO" --json 2>/dev/null | jq -r 'sort_by(.updated_at) | reverse | .[0].id // empty' || echo "")
 fi
 
 # Check freshness (24h threshold)

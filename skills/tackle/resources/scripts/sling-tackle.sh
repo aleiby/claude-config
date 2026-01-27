@@ -31,6 +31,21 @@ if [ -z "${ISSUE_ID:-}" ]; then
   echo "ERROR: ISSUE_ID must be set before sourcing sling-tackle.sh"
   exit 1
 fi
+
+# Validate bead is accessible BEFORE doing any setup work
+# This catches routing issues early (e.g., bead created in wrong database)
+if ! bd show "$ISSUE_ID" --json >/dev/null 2>&1; then
+  echo "ERROR: Cannot access bead '$ISSUE_ID'"
+  echo ""
+  echo "Possible causes:"
+  echo "  - Bead was created with wrong prefix (check bd list to find it)"
+  echo "  - Routing misconfiguration (run: BD_DEBUG_ROUTING=1 bd show $ISSUE_ID)"
+  echo "  - Bead doesn't exist (was it created?)"
+  echo ""
+  echo ">>> Mail the mayor - do NOT debug this yourself <<<"
+  exit 1
+fi
+
 if [ -z "${ORG_REPO:-}" ]; then
   echo "ERROR: ORG_REPO must be set before sourcing sling-tackle.sh"
   exit 1

@@ -40,7 +40,7 @@ if [ -z "$HOOK_JSON" ] || [ "$HOOK_JSON" = "{}" ]; then
   exit 1
 fi
 
-ISSUE_ID=$(echo "$HOOK_JSON" | jq -r '.bead_id // empty')
+ISSUE_ID=$(echo "$HOOK_JSON" | jq -r '.pinned_bead.id // .bead_id // empty')
 MOL_ID=$(echo "$HOOK_JSON" | jq -r '.attached_molecule // empty')
 
 if [ -z "$ISSUE_ID" ]; then

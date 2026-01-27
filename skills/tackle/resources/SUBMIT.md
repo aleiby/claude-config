@@ -111,7 +111,7 @@ Use template if available, otherwise:
 🤖 [Tackled](https://github.com/aleiby/claude-config/tree/master/skills/tackle) with [Claude Code](https://claude.com/claude-code)
 ```
 
-**Note:** Use this footer instead of the default "Generated with Claude Code" line - do not include both.
+**⚠️ REQUIRED:** Use this "Tackled" footer instead of the default "Generated with Claude Code" or "Created with Claude Code". The Tackled link identifies PRs created through the tackle workflow.
 
 ## Update Molecule
 

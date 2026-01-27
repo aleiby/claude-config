@@ -175,6 +175,28 @@ fi
 
 Include the final `cache_bead` ID in your output.
 
+## Shell/jq Tips
+
+**Avoid `!= null` in jq within bash** - the `!` triggers bash history expansion and gets escaped to `\!`, causing syntax errors.
+
+Instead of:
+```bash
+# BAD - will fail with "unexpected INVALID_CHARACTER"
+jq '.[] | select(.field != null)'
+```
+
+Use truthy checks:
+```bash
+# GOOD - .field is truthy when non-null
+jq '.[] | select(.field)'
+```
+
+Or use single quotes carefully:
+```bash
+# GOOD - single quotes prevent bash expansion
+jq '.[] | select(.field | . != null)'
+```
+
 ## Error Handling
 
 If API calls fail:

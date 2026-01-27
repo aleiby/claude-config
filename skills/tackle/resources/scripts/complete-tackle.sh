@@ -27,7 +27,7 @@ set -euo pipefail
 # Get IDs from hook if not already set
 HOOK_JSON=$(gt hook --json 2>/dev/null || echo '{}')
 if [ -z "${ISSUE_ID:-}" ]; then
-  ISSUE_ID=$(echo "$HOOK_JSON" | jq -r '.bead_id // empty')
+  ISSUE_ID=$(echo "$HOOK_JSON" | jq -r '.pinned_bead.id // empty')
 fi
 if [ -z "${MOL_ID:-}" ]; then
   MOL_ID=$(echo "$HOOK_JSON" | jq -r '.attached_molecule // empty')

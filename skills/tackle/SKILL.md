@@ -14,11 +14,12 @@ user-invocable: true
 ## Quick Reference
 
 ```
-/tackle <issue>         Start working on issue
-/tackle --resume        Continue after compaction/restart (auto-detects step)
+/tackle <issue>         Start or resume tackle for issue (auto-resumes if prior progress exists)
+/tackle --resume        Continue after compaction/restart (auto-detects step from hook)
 /tackle --resume <step> Load guidance for specific step (plan, implement, validate, etc.)
 /tackle --status        Show current state
-/tackle --abort         Abandon tackle, clean up
+/tackle --pause         Pause tackle (keeps progress, frees hook for other work)
+/tackle --abort         Abandon tackle permanently (destroys molecule, cannot resume)
 /tackle --refresh       Force refresh upstream research
 /tackle --help          Show this help
 ```
@@ -183,10 +184,11 @@ First, parse what the user wants:
 
 | Input | Action |
 |-------|--------|
-| `/tackle <issue>` | Start or resume tackle for issue |
+| `/tackle <issue>` | Start or resume tackle for issue (auto-hooks and resumes if prior progress exists) |
 | `/tackle --resume` | Continue in-progress tackle after compaction/restart (runs Resumption Protocol) |
 | `/tackle --status` | Show current tackle state via `gt hook --json` |
-| `/tackle --abort` | Abandon tackle, clean up molecule and branch |
+| `/tackle --pause` | Pause tackle, keep progress for later resume |
+| `/tackle --abort` | Abandon tackle permanently, destroy molecule |
 | `/tackle --refresh` | Force refresh upstream research |
 | `/tackle --help` | Show Quick Reference to user |
 
@@ -194,16 +196,7 @@ First, parse what the user wants:
 
 When starting `/tackle <issue>`:
 
-#### 1. Check for Existing Work
-
-```bash
-gt hook --json | jq '{bead: .bead_id, molecule: .attached_molecule, progress: .progress}'
-```
-
-If work is hooked with an attached molecule, resume from current step.
-If no molecule attached, continue with fresh tackle setup below.
-
-#### 2. Resolve Issue
+#### 1. Resolve Issue
 
 The user's input may be an issue ID, partial match, or description.
 
@@ -223,6 +216,28 @@ Once resolved, set the variable for subsequent steps:
 ```bash
 ISSUE_ID="<resolved-issue-id>"  # e.g., "hq-1234"
 ```
+
+#### 2. Check for Existing Work
+
+Check if the resolved issue already has an attached molecule (prior tackle progress):
+
+```bash
+# Check if issue has an attached molecule
+ATTACHED_MOL=$(bd show "$ISSUE_ID" --json | jq -r '.[0].description // ""' | grep -oP 'attached_molecule: \K\S+' || true)
+
+# Check what's currently on hook
+HOOKED_BEAD=$(gt hook --json | jq -r '.pinned_bead.id // empty')
+```
+
+**If issue has an attached molecule:**
+- If `$ISSUE_ID` is already on hook → resume from current step (run Resumption Protocol)
+- If different bead is hooked → ask user to unsling first, or auto-hook:
+  ```bash
+  gt hook "$ISSUE_ID"  # Hooks the issue (with its attached molecule)
+  ```
+  Then run the Resumption Protocol to continue where it left off.
+
+**If no molecule attached:** Continue with fresh tackle setup below.
 
 #### 3. Detect Upstream
 
@@ -659,6 +674,8 @@ This sets: `PR_NUMBER`, `IS_DRAFT`, `PR_URL`, `BRANCH`, `FORK_OWNER`
 
 **Requires**: `ORG_REPO` and `ISSUE_ID` must be set (from set-vars.sh).
 
+**⚠️ REQUIRED PR FOOTER**: Always include the "Tackled with Claude Code" footer shown above. Do NOT use the generic "Generated with Claude Code" or "Created with Claude Code" - those indicate the PR was not created through the tackle workflow.
+
 GitHub is the source of truth for PR state.
 
 ### Show to User
@@ -860,7 +877,39 @@ See **Resource Loading** section above for step names and their resources.
 - When confused about tackle state
 - When the formula step says "Run `/tackle --resume <step>`"
 
+### Pausing (`/tackle --pause`)
+
+To temporarily set aside a tackle and work on something else:
+
+```bash
+# Get current state for the banner
+ISSUE_ID=$(gt hook --json | jq -r '.pinned_bead.id // empty')
+STEP_ID=$(gt hook --json | jq -r '.progress.current_step // "unknown"')
+
+# Detach from hook (molecule stays attached to issue)
+gt unsling --force
+```
+
+**OUTPUT THIS BANNER when tackle is paused:**
+
+```
+┌─────────────────────────────────────────────────────────┐
+│  ⏸️  TACKLE PAUSED: <issue-id> at step: <step-id>        │
+└─────────────────────────────────────────────────────────┘
+
+Resume later with: /tackle <issue-id>
+```
+
+The molecule and all progress remain attached to the issue. Resume later with:
+```bash
+/tackle <issue-id>  # Auto-hooks and resumes from where you left off
+```
+
+**Use this when:** Switching to higher-priority work, comparing approaches, or taking a break.
+
 ### Aborting (`/tackle --abort`)
+
+**⚠️ DESTRUCTIVE**: This permanently destroys the molecule. You cannot resume after aborting.
 
 To abandon a tackle mid-workflow:
 
@@ -880,7 +929,9 @@ To abandon a tackle mid-workflow:
    bd update "$ISSUE_ID" --status=open --notes="Tackle aborted"
    ```
 
-The issue returns to ready state for future work.
+The issue returns to ready state for a **fresh** tackle (no prior progress).
+
+**Use this when:** The approach was wrong, requirements changed, or you want to start over.
 
 **OUTPUT THIS BANNER when tackle is aborted:**
 
