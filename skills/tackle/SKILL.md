@@ -891,9 +891,7 @@ gt unsling --force
 **OUTPUT THIS BANNER when tackle is paused:**
 
 ```
-┌─────────────────────────────────────────────────────────┐
-│  ⏸️  TACKLE PAUSED: <issue-id> at step: <step-id>        │
-└─────────────────────────────────────────────────────────┘
+⏸️ TACKLE PAUSED: <issue-id> at step: <step-id>
 
 Resume later with: /tackle <issue-id>
 ```
@@ -934,9 +932,7 @@ The issue returns to ready state for a **fresh** tackle (no prior progress).
 **OUTPUT THIS BANNER when tackle is aborted:**
 
 ```
-┌─────────────────────────────────────────────────────────┐
-│  ⛔ TACKLE ABORTED: <issue-id>                          │
-└─────────────────────────────────────────────────────────┘
+⛔ TACKLE ABORTED: <issue-id>
 ```
 
 ## Session Handoff
