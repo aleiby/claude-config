@@ -46,7 +46,7 @@ This step runs **immediately after PR submission** (not after merge). Capture fr
 ### 4. Molecule Cleanup?
 - Are ALL steps closed (not just reflect)?
 - Is the ROOT MOLECULE closed?
-- Did I record issues in molecule notes for pattern detection?
+- Did I record issues in **issue notes** for pattern detection?
 
 ### 5. Off-Script Moments?
 **This is critical for improving guardrails.** Think back through your session:
@@ -110,11 +110,11 @@ source "$SKILL_DIR/resources/scripts/query-friction.sh"
 # Or run directly: bash "$SKILL_DIR/resources/scripts/query-friction.sh"
 ```
 
-Check molecule notes for recurring issues before proposing fixes.
+Check issue notes for recurring friction before proposing fixes.
 
 ## When to Fix
 
-### Fix Immediately (no pattern needed)
+### Report Immediately (no pattern needed)
 Objective errors that will always fail:
 - Wrong command flags (`--silent` doesn't exist)
 - Missing required flags (`--no-daemon` required but not in instructions)
@@ -126,7 +126,15 @@ Predictable inefficiencies that will always waste effort:
 - Missing state tracking that forces unnecessary re-fetches
 - Logic errors that produce correct but wasteful behavior
 
-These are bugs or design flaws, not patterns. Fix them now.
+These are bugs or design flaws, not patterns. **Do NOT edit skill files yourself.**
+Instead:
+1. Record the friction on the **issue** (see Recording Issues below)
+2. Mail the mayor with the proposed fix:
+```bash
+STEP="reflect" ERROR_DESC="Objective skill bug: <description>" \
+  source "$SKILL_DIR/resources/scripts/report-problem.sh"
+```
+The mayor will triage and fix the skill.
 
 ### Note and Check for Patterns (2+ occurrences)
 Subjective issues that need validation:
@@ -135,7 +143,7 @@ Subjective issues that need validation:
 - "Step took multiple attempts" - might be user error
 
 **Rules:**
-- 1 occurrence: Note in molecule notes, wait for pattern
+- 1 occurrence: Note in issue notes, wait for pattern
 - 2+ occurrences: Propose fix
 - 3+ occurrences: Definitely fix
 
@@ -221,11 +229,11 @@ source "$SKILL_DIR/resources/scripts/complete-tackle.sh"
 
 ### If there were issues
 
-First record friction in molecule notes (see Recording Issues above), then:
+First record friction in issue notes (see Recording Issues above), then:
 
 ```bash
 # Close reflect step
-bd close <reflect-step-id> --reason "See molecule notes for friction details"
+bd close <reflect-step-id> --reason "See issue notes for friction details"
 
 # Set squash summary with friction summary
 export SQUASH_SUMMARY="PR #<number>: <brief description> - friction: <1-line summary>"
@@ -241,7 +249,7 @@ The script:
 
 **Why squash?** Tackle creates wisps (ephemeral molecules) due to a limitation in `gt sling --on`. Squashing preserves the audit trail before wisps disappear.
 
-**Why this matters**: Open molecules pollute future queries. Pattern detection depends on closed molecules with friction recorded in notes.
+**Why this matters**: Open molecules pollute future queries. Pattern detection depends on issues with friction recorded in notes and `tackle:friction` labels.
 
 ## Example
 
