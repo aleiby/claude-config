@@ -564,7 +564,7 @@ Plan for <issue-id>: <issue-title>
 ## Claim
 <one of:>
   - Will claim: issue #<n> is open, unclaimed, on upstream
-  - Skip: <reason, e.g., "internal-only issue", "already assigned to me", "I filed this issue">
+  - Skip: <reason, e.g., "internal-only issue", "already assigned to me">
 
 Options:
   1. Approve (continue to implementation)
