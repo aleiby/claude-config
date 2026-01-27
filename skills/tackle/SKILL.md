@@ -854,9 +854,7 @@ The script squashes the molecule (creating a digest for audit trail), closes it,
 **OUTPUT THIS BANNER when tackle completes:**
 
 ```
-┌─────────────────────────────────────────────────────────┐
-│  ✅ TACKLE COMPLETE: <issue-id> → PR #<number>          │
-└─────────────────────────────────────────────────────────┘
+✅ TACKLE COMPLETE: <issue-id> → PR #<number>
 ```
 
 ### Resuming (`/tackle --resume [step]`)
