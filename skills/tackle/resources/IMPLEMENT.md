@@ -247,6 +247,7 @@ git branch -D test-wip
    - No `// Fixed in #123`, `// See hq-1234`, `// PR #456`, `// Tackled`, etc.
    - Code comments should explain *why*, not reference external tracking systems
    - Tracking references belong in commit messages and PR descriptions only
+   - **Exception**: The "Tackled" footer in PR descriptions is required (see SUBMIT.md)
 
 4. **Stay focused**:
    - Only change what's needed for the issue
